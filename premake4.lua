@@ -7,7 +7,8 @@ solution "Asinine"
 	includedirs { "include" }
 
 	flags { "FatalWarnings" }
-	buildoptions { "-pedantic", "-ffunction-sections", "-Wextra" }
+	buildoptions { "-ansi", "-std=c99", "-pedantic", "-ffunction-sections",
+		"-Wextra" }
 
 	configuration "Debug"
 		defines { "DEBUG" }
