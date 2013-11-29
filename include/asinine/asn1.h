@@ -43,8 +43,8 @@ typedef enum asn1_class {
 
 typedef enum asn1_universal_type {
 	// ASN1_TYPE_INVALID         =  0,
-	ASN1_TYPE_BOOLEAN         =  1,
-	ASN1_TYPE_INTEGER         =  2,
+	ASN1_TYPE_BOOL            =  1,
+	ASN1_TYPE_INT             =  2,
 	ASN1_TYPE_BITSTRING       =  3,
 	ASN1_TYPE_OCTETSTRING     =  4,
 	ASN1_TYPE_NULL            =  5,
@@ -82,6 +82,8 @@ asn1_err_t asn1_parser_init(asn1_parser_t *parser, asn1_token_t *token,
 	const uint8_t *data, size_t length);
 const asn1_token_t* asn1_parser_token(const asn1_parser_t *parser);
 asn1_err_t asn1_parser_next(asn1_parser_t *parser);
+asn1_err_t asn1_parser_next_child(asn1_parser_t *parser,
+	const asn1_token_t *parent);
 /**
  * Skip over all children of the current token
  * @param  parser ASN.1 parser
@@ -105,10 +107,14 @@ typedef struct asn1_oid {
 asn1_err_t asn1_string(const asn1_token_t *token, char *buf, size_t num);
 int asn1_string_eq(const asn1_token_t *token, const char *str);
 
-asn1_err_t asn1_integer(const asn1_token_t *token, int *value);
-asn1_err_t asn1_integer_unsafe(const asn1_token_t *token, int *value);
+asn1_err_t asn1_int(const asn1_token_t *token, int *value);
+asn1_err_t asn1_int_unsafe(const asn1_token_t *token, int *value);
 
 asn1_err_t asn1_time(const asn1_token_t *token, asn1_time_t *time);
+
+asn1_err_t asn1_bool(const asn1_token_t *token, bool *value);
+asn1_err_t asn1_bool_unsafe(const asn1_token_t *token, bool *value);
+
 
 const uint8_t* asn1_raw(const asn1_token_t *token);
 const char* asn1_type_to_string(asn1_type_t type);
@@ -122,13 +128,15 @@ int asn1_is_time(const asn1_token_t *token);
 #define asn1_is_oid(token) \
 	asn1_is(token, ASN1_CLASS_UNIVERSAL, ASN1_TYPE_OID)
 #define asn1_is_int(token) \
-	asn1_is(token, ASN1_CLASS_UNIVERSAL, ASN1_TYPE_INTEGER)
+	asn1_is(token, ASN1_CLASS_UNIVERSAL, ASN1_TYPE_INT)
 #define asn1_is_set(token) \
 	asn1_is(token, ASN1_CLASS_UNIVERSAL, ASN1_TYPE_SET)
+#define asn1_is_bool(token) \
+	asn1_is(token, ASN1_CLASS_UNIVERSAL, ASN1_TYPE_BOOL)
 
 /* OID */
 asn1_err_t asn1_oid(const asn1_token_t *token, asn1_oid_t *oid);
-asn1_err_t asn1_oid_to_string(const asn1_oid_t *oid, char *buffer,
+bool asn1_oid_to_string(const asn1_oid_t *oid, char *buffer,
 	size_t num);
 int asn1_oid_eq(const asn1_oid_t *oid, size_t num, ...);
 int asn1_oid_cmp(const asn1_oid_t *a, const asn1_oid_t *b);

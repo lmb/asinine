@@ -213,3 +213,13 @@ asn1_parser_next(asn1_parser_t *parser)
 	return ASN1_OK;
 #undef INC_CURRENT
 }
+
+asn1_err_t
+asn1_parser_next_child(asn1_parser_t *parser, const asn1_token_t *parent)
+{
+	if (!asn1_parser_is_within(parser, parent)) {
+		return ASN1_ERROR_EOF;
+	}
+
+	return asn1_parser_next(parser);
+}

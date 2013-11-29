@@ -98,13 +98,13 @@ asn1_oid(const asn1_token_t *token, asn1_oid_t *oid)
 	return ASN1_OK;
 }
 
-asn1_err_t
+bool
 asn1_oid_to_string(const asn1_oid_t *oid, char *buffer, size_t num)
 {
 	size_t i, total_written = 0;
 
 	if (oid->num < OID_MINIMUM_ARCS) {
-		return ASN1_ERROR_INVALID;
+		return false;
 	}
 
 	for (i = 0; i < oid->num; i++) {
@@ -125,7 +125,7 @@ asn1_oid_to_string(const asn1_oid_t *oid, char *buffer, size_t num)
 		*(buffer-1) = '\0';
 	}
 
-	return ASN1_OK;
+	return true;
 }
 
 int

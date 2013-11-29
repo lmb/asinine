@@ -101,8 +101,7 @@ test_asn1_oid_to_string(void)
 	check(asn1_oid_to_string(&oid, oid_str, sizeof(oid_str)) == ASN1_OK);
 	check(strncmp("1.2.3", oid_str, 5) == 0);
 
-	check(asn1_oid_to_string(&invalid_oid, oid_str, sizeof(oid_str))
-		== ASN1_ERROR_INVALID);
+	check(!asn1_oid_to_string(&invalid_oid, oid_str, sizeof(oid_str)));
 
 	return 0;
 }
@@ -160,17 +159,17 @@ test_asn1_parse(void)
 
 	check(asn1_parser_next(&parser) == ASN1_OK);
 	check(asn1_is_int(&token));
-	check(asn1_integer(&token, &value) == ASN1_OK);
+	check(asn1_int(&token, &value) == ASN1_OK);
 	check(value == 0x01);
 
 	check(asn1_parser_next(&parser) == ASN1_OK);
 	check(asn1_is_int(&token));
-	check(asn1_integer(&token, &value) == ASN1_OK);
+	check(asn1_int(&token, &value) == ASN1_OK);
 	check(value == 0x02);
 
 	check(asn1_parser_next(&parser) == ASN1_OK);
 	check(asn1_is_int(&token));
-	check(asn1_integer(&token, &value) == ASN1_OK);
+	check(asn1_int(&token, &value) == ASN1_OK);
 	check(value == -0x10);
 
 	check(asn1_parser_next(&parser) == ASN1_OK);
@@ -178,7 +177,7 @@ test_asn1_parse(void)
 
 	check(asn1_parser_next(&parser) == ASN1_OK);
 	check(asn1_is_int(&token));
-	check(asn1_integer(&token, &value) == ASN1_OK);
+	check(asn1_int(&token, &value) == ASN1_OK);
 	check(value == 0x11);
 
 	check(asn1_parser_next(&parser) == ASN1_OK);
@@ -186,7 +185,7 @@ test_asn1_parse(void)
 
 	check(asn1_parser_next(&parser) == ASN1_OK);
 	check(asn1_is_int(&token));
-	check(asn1_integer(&token, &value) == ASN1_OK);
+	check(asn1_int(&token, &value) == ASN1_OK);
 	check(value == 0x01);
 
 	check(asn1_parser_next(&parser) == ASN1_OK);
@@ -197,12 +196,12 @@ test_asn1_parse(void)
 
 	check(asn1_parser_next(&parser) == ASN1_OK);
 	check(asn1_is_int(&token));
-	check(asn1_integer(&token, &value) == ASN1_OK);
+	check(asn1_int(&token, &value) == ASN1_OK);
 	check(value == 0x02);
 
 	check(asn1_parser_next(&parser) == ASN1_OK);
 	check(asn1_is_int(&token));
-	check(asn1_integer(&token, &value) == ASN1_OK);
+	check(asn1_int(&token, &value) == ASN1_OK);
 	check(value == 0x03);
 
 	return 0;

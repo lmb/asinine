@@ -136,7 +136,7 @@ asn1_string_eq(const asn1_token_t *token, const char *str)
 
 // 8.3
 asn1_err_t
-asn1_integer_unsafe(const asn1_token_t *token, int *value)
+asn1_int_unsafe(const asn1_token_t *token, int *value)
 {
 	bool negative;
 	const uint8_t *data;
@@ -166,14 +166,14 @@ asn1_integer_unsafe(const asn1_token_t *token, int *value)
 }
 
 asn1_err_t
-asn1_integer(const asn1_token_t *token, int *value)
+asn1_int(const asn1_token_t *token, int *value)
 {
 	// TODO: 8.3.2
-	if (!asn1_is(token, ASN1_CLASS_UNIVERSAL, ASN1_TYPE_INTEGER)) {
+	if (!asn1_is_int(token)) {
 		return ASN1_ERROR_INVALID;
 	}
 
-	return asn1_integer_unsafe(token, value);
+	return asn1_int_unsafe(token, value);
 }
 
 static bool
@@ -320,13 +320,45 @@ asn1_time(const asn1_token_t *token, asn1_time_t *time)
 	return ASN1_OK;
 }
 
+asn1_err_t
+asn1_bool_unsafe(const asn1_token_t *token, bool *value)
+{
+	uint8_t data;
+
+	if (token->length != 1) {
+		return ASN1_ERROR_INVALID;
+	}
+
+	data = *token->data;
+	// 11.1
+	if (data == 0x00) {
+		*value = false;
+	} else if (data == 0xFF) {
+		*value = true;
+	} else {
+		return ASN1_ERROR_INVALID;
+	}
+
+	return ASN1_OK;
+}
+
+asn1_err_t
+asn1_bool(const asn1_token_t *token, bool *value)
+{
+	if (!asn1_is_bool(token)) {
+		return ASN1_ERROR_INVALID;
+	}
+
+	return asn1_bool_unsafe(token, value);
+}
+
 const char*
 asn1_type_to_string(asn1_type_t type)
 {
 #define case_for_type(x) case x: return #x
 	switch(type) {
-		case_for_type(ASN1_TYPE_BOOLEAN);
-		case_for_type(ASN1_TYPE_INTEGER);
+		case_for_type(ASN1_TYPE_BOOL);
+		case_for_type(ASN1_TYPE_INT);
 		case_for_type(ASN1_TYPE_BITSTRING);
 		case_for_type(ASN1_TYPE_OCTETSTRING);
 		case_for_type(ASN1_TYPE_NULL);
