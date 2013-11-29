@@ -12,10 +12,23 @@ static char*
 test_x509_parse(void)
 {
 	x509_cert_t cert;
+	size_t i;
+	bool errors;
+
+	for (errors = false, i = 0; i < x509_certs_num; i++) {
+		const uint8_t * const data = x509_certs[i].data;
+		const size_t length = x509_certs[i].length;
+
+		if (x509_parse(&cert, data, length) != X509_OK) {
+			errors = true;
+
+			printf("> %s (#%lu) failed to parse\n", x509_certs[i].host, i);
+		}
+	}
 
 	check(x509_parse(&cert, x509_certs[0].data, x509_certs[0].length) == X509_OK);
 
-	return 0;
+	return (!errors) ? 0 : "Some certificates failed to parse";
 }
 
 int
