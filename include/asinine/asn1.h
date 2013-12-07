@@ -53,9 +53,11 @@ typedef enum asn1_universal_type {
 	ASN1_TYPE_SEQUENCE        = 16,
 	ASN1_TYPE_SET             = 17,
 	ASN1_TYPE_PRINTABLESTRING = 19,
+	ASN1_TYPE_T61STRING       = 20,
 	ASN1_TYPE_IA5STRING       = 22,
 	ASN1_TYPE_UTCTIME         = 23,
-	ASN1_TYPE_GENERALIZEDTIME = 24
+	ASN1_TYPE_GENERALIZEDTIME = 24,
+	ASN1_TYPE_VISIBLESTRING   = 26
 } asn1_universal_type_t;
 
 typedef unsigned int asn1_type_t;

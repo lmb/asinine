@@ -98,7 +98,7 @@ test_asn1_oid_to_string(void)
 	const asn1_oid_t oid = ASN1_OID(1,2,3);
 	const asn1_oid_t invalid_oid = ASN1_OID(1);
 
-	check(asn1_oid_to_string(&oid, oid_str, sizeof(oid_str)) == ASN1_OK);
+	check(asn1_oid_to_string(&oid, oid_str, sizeof(oid_str)));
 	check(strncmp("1.2.3", oid_str, 5) == 0);
 
 	check(!asn1_oid_to_string(&invalid_oid, oid_str, sizeof(oid_str)));
@@ -326,6 +326,8 @@ int
 test_asn1_all(int *tests_run)
 {
 	declare_set;
+
+	printf("sizeof asn1_token_t: %lu\n", sizeof(asn1_token_t));
 
 	run_test(test_asn1_oid_decode);
 	run_test(test_asn1_oid_decode_invalid);

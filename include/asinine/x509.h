@@ -34,10 +34,8 @@ typedef enum x509_algorithm {
 } x509_algorithm_t;
 
 typedef struct {
-	asn1_token_t common_name;
-	asn1_token_t country_name;
-	asn1_token_t organization;
-	asn1_token_t organization_unit;
+	asn1_token_t root;
+	size_t num_rdns;
 } x509_name_t;
 
 struct x509_cert {
@@ -55,6 +53,7 @@ void x509_cert_init(x509_cert_t *cert);
 x509_err_t x509_parse(x509_cert_t *cert, const uint8_t *data, size_t num);
 x509_err_t x509_validate(const x509_cert_t *cert);
 
+bool x509_name_eq(const x509_name_t *a, const x509_name_t *b);
 #ifdef __cplusplus
 }
 #endif

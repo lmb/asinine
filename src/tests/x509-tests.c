@@ -9,20 +9,33 @@
 #include "asinine/tests/certs.h"
 
 static char*
-test_x509_parse(void)
+test_x509_certs(void)
 {
 	x509_cert_t cert;
 	size_t i;
 	bool errors;
 
 	for (errors = false, i = 0; i < x509_certs_num; i++) {
+		const char * const host = x509_certs[i].host;
 		const uint8_t * const data = x509_certs[i].data;
 		const size_t length = x509_certs[i].length;
 
-		if (x509_parse(&cert, data, length) != X509_OK) {
-			errors = true;
+		switch (x509_parse(&cert, data, length)) {
+			case X509_OK: {
+				continue;
+			}
 
-			printf("> %s (#%lu) failed to parse\n", x509_certs[i].host, i);
+			case X509_ERROR_UNSUPPORTED: {
+				printf("> %s (#%lu) uses unsupported features\n", host, i);
+				errors = true;
+				break;
+			}
+
+			default: {
+				printf("> %s (#%lu) failed to parse\n", host, i);
+				errors = true;
+				break;
+			}
 		}
 	}
 
@@ -36,7 +49,9 @@ test_x509_all(int *tests_run)
 {
 	declare_set;
 
-	run_test(test_x509_parse);
+	printf("sizeof x509_cert_t: %lu\n", sizeof(x509_cert_t));
+
+	run_test(test_x509_certs);
 
 	end_set;
 }

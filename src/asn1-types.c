@@ -20,28 +20,48 @@ validate_string(const asn1_token_t *token)
 {
 	const uint8_t *data;
 
-	if (asn1_is(token, ASN1_CLASS_UNIVERSAL, ASN1_TYPE_PRINTABLESTRING)) {
+	if (token == NULL || token->class != ASN1_CLASS_UNIVERSAL) {
+		return false;
+	}
+
+	switch (token->type) {
+	case ASN1_TYPE_PRINTABLESTRING:
 		for (data = token->data; data < token->data + token->length; data++) {
-			if (*data == ' ') {
+			// Space
+			if (*data == 0x20) {
 				continue;
 			}
 
-			if (*data < '\'' || *data > 'z') {
+			// ' and z
+			if (*data < 0x27 || *data > 0x7a) {
 				return false;
 			}
 
-			if (*data == '*' || *data == ';' || *data == '<' || *data == '>' ||
-				*data == '@') {
+			// Illegal characters: *, ;, <, >, @
+			if (*data == 0x2a || *data == 0x3b || *data == 0x3c || *data == 0x3e
+				|| *data == 0x40) {
 				return false;
 			}
 		}
-	} else if (asn1_is(token, ASN1_CLASS_UNIVERSAL, ASN1_TYPE_IA5STRING)) {
+		break;
+
+	case ASN1_TYPE_IA5STRING:
+	case ASN1_TYPE_VISIBLESTRING:
+	case ASN1_TYPE_T61STRING:
 		for (data = token->data; data < token->data + token->length; data++) {
-			if (*data < 0 || *data > 127) {
+			/* Strictly speaking, control codes are allowed for IA5STRING, but
+			 * since we don't have a way of dealing with code-page switching we
+			 * restrict the type. This is non-conformant to the spec.
+			 * Same goes for T61String, which can switch code pages mid-stream.
+			 * We assume that the initial code-page is #6 (ASCII), and flag
+			 * switching as an error. */
+			if (*data < 0x20 || *data > 0x7f) {
 				return false;
 			}
 		}
-	} else if (asn1_is(token, ASN1_CLASS_UNIVERSAL, ASN1_TYPE_UTF8STRING)) {
+		break;
+
+	case ASN1_TYPE_UTF8STRING: {
 		enum {
 			LEADING,
 			CONTINUATION
@@ -89,7 +109,10 @@ validate_string(const asn1_token_t *token)
 				}
 			}
 		}
-	} else {
+		break;
+	}
+
+	default:
 		return false;
 	}
 
@@ -196,7 +219,6 @@ asn1_time(const asn1_token_t *token, asn1_time_t *time)
 		    31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31
 	};
 
-	const char * const end = ((char *)token->data) + token->length;
 	const char *data = (char *)token->data;
 
 	union {
@@ -230,7 +252,7 @@ asn1_time(const asn1_token_t *token, asn1_time_t *time)
 
 	if (*data != 'Z') {
 		// Try to decode seconds
-		if (data + 2 >= end) {
+		if (data + 2 >= (char*)token->end) {
 			// Need at least another char for seconds, plus 'Z' or timezone
 			return ASN1_ERROR_INVALID;
 		}
@@ -416,5 +438,7 @@ asn1_is_string(const asn1_token_t *token)
 		(token->class == ASN1_CLASS_UNIVERSAL) &&
 		(token->type == ASN1_TYPE_PRINTABLESTRING ||
 			token->type == ASN1_TYPE_IA5STRING ||
-			token->type == ASN1_TYPE_UTF8STRING);
+			token->type == ASN1_TYPE_UTF8STRING ||
+			token->type == ASN1_TYPE_VISIBLESTRING ||
+			token->type == ASN1_TYPE_T61STRING);
 }

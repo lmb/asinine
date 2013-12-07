@@ -157,6 +157,16 @@ x509_parse(x509_cert_t *cert, const uint8_t *data, size_t num)
 		X509_OK : X509_ERROR_INVALID;
 }
 
+bool
+x509_name_eq(const x509_name_t *a, const x509_name_t *b)
+{
+	if (a == NULL || b == NULL || a->num_rdns != b->num_rdns) {
+		return false;
+	}
+
+	return false;
+}
+
 // TODO: Make runtime possibly?
 static const algorithm_lookup_t algorithms[] = {
 	{
@@ -284,7 +294,7 @@ parse_extensions(asn1_parser_t *parser, x509_cert_t *cert)
 		if (!asn1_oid_to_string(&extnid, buf, sizeof buf)) {
 			continue;
 		}
-		printf("Got extension %s, critical = %u\n", buf, critical);
+		printf("Extension OID: %s\n", buf);
 
 		asn1_parser_ascend(parser, 1);
 	}
@@ -331,8 +341,8 @@ parse_signature(asn1_parser_t *parser, x509_cert_t *cert)
  * A Name is structured as follows:
  * 
  *   SEQUENCE OF
- *     SET OF (one or more) (V3 with subjectAltName: zero)
- *       SEQUENCE (one or more)
+ *     SET OF (one or more) (V3 with subjectAltName: zero) (= RDN)
+ *       SEQUENCE (one or more) (= AVA)
  *         OID Type
  *         ANY Value
  *
@@ -343,8 +353,6 @@ parse_signature(asn1_parser_t *parser, x509_cert_t *cert)
 static x509_err_t parse_names(asn1_parser_t *parser, x509_name_t *name)
 {
 	const asn1_token_t *token;
-	asn1_token_t name_token;
-	asn1_oid_t oid;
 
 	token = asn1_parser_token(parser);
 
@@ -353,12 +361,14 @@ static x509_err_t parse_names(asn1_parser_t *parser, x509_name_t *name)
 		return X509_ERROR_INVALID;
 	}
 
-	name_token = *token;
+	name->root = *token;
+	name->num_rdns = 0;
+
 	asn1_parser_descend(parser);
 
 	// TODO: The sequence may be empty for V3 certificates, where the
 	// subjectAltName extension is enabled.
-	while (asn1_parser_is_within(parser, &name_token)) {
+	while (asn1_parser_is_within(parser, &name->root)) {
 		// "RelativeDistinguishedName"
 		asn1_token_t rdn_token;
 
@@ -379,7 +389,6 @@ static x509_err_t parse_names(asn1_parser_t *parser, x509_name_t *name)
 		if (asn1_parser_next(parser) < ASN1_OK || !asn1_is_oid(token)) {
 			return X509_ERROR_INVALID;
 		}
-		asn1_oid(token, &oid);
 
 		// Get string value
 		if (asn1_parser_next(parser) < ASN1_OK || !asn1_is_string(token)) {
@@ -387,37 +396,38 @@ static x509_err_t parse_names(asn1_parser_t *parser, x509_name_t *name)
 		}
 
 		// Map OID to entry in struct
-		if (asn1_oid_eq(&oid, OID_COMMON_NAME)) {
-			if (token->length < 1 || token->length > 64) {
-				return X509_ERROR_INVALID;
-			}
+		// if (asn1_oid_eq(&oid, OID_COMMON_NAME)) {
+		// 	if (token->length < 1 || token->length > 64) {
+		// 		return X509_ERROR_INVALID;
+		// 	}
 
-			name->common_name = *token;
-		} else if (asn1_oid_eq(&oid, OID_COUNTRY_NAME)) {
-			if (token->length != 2) {
-				return X509_ERROR_INVALID;
-			}
+		// 	name->common_name = *token;
+		// } else if (asn1_oid_eq(&oid, OID_COUNTRY_NAME)) {
+		// 	if (token->length != 2) {
+		// 		return X509_ERROR_INVALID;
+		// 	}
 
-			name->country_name = *token;
-		} else if (asn1_oid_eq(&oid, OID_ORGANIZATION)) {
-			if (token->length < 1 || token->length > 64) {
-				return X509_ERROR_INVALID;
-			}
+		// 	name->country_name = *token;
+		// } else if (asn1_oid_eq(&oid, OID_ORGANIZATION)) {
+		// 	if (token->length < 1 || token->length > 64) {
+		// 		return X509_ERROR_INVALID;
+		// 	}
 
-			name->organization = *token;
-		} else if (asn1_oid_eq(&oid, OID_ORGANIZATION_UNIT)) {
-			if (token->length < 1 || token->length > 64) {
-				return X509_ERROR_INVALID;
-			}
+		// 	name->organization = *token;
+		// } else if (asn1_oid_eq(&oid, OID_ORGANIZATION_UNIT)) {
+		// 	if (token->length < 1 || token->length > 64) {
+		// 		return X509_ERROR_INVALID;
+		// 	}
 
-			name->organization_unit = *token;
-		} else {
-			char buf[128] = "";
-			asn1_oid_to_string(&oid, buf, sizeof(buf));
+		// 	name->organization_unit = *token;
+		// } else {
+		// 	char buf[128] = "";
+		// 	asn1_oid_to_string(&oid, buf, sizeof(buf));
 
-			printf("WARNING: Unknown OID - %s\n", buf);
-		}
+		// 	printf("WARNING - Unknown OID in Name: %s\n", buf);
+		// }
 
+		name->num_rdns++;
 		asn1_parser_ascend(parser, 2);
 
 		// TODO: Currently, only one AVA per RDN is supported
@@ -425,6 +435,8 @@ static x509_err_t parse_names(asn1_parser_t *parser, x509_name_t *name)
 			return X509_ERROR_UNSUPPORTED;
 		}
 	}
+
+	printf("Name has %lu RDNs\n", name->num_rdns);
 
 	asn1_parser_ascend(parser, 1);
 
