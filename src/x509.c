@@ -35,10 +35,11 @@ static asinine_err_t parse_signature(asn1_parser_t *, x509_cert_t *);
 static asinine_err_t parse_validity(asn1_parser_t *, x509_cert_t *);
 static asinine_err_t parse_name(asn1_parser_t *, asn1_token_t *);
 
-#define DELEGATE_PARSING(func, parser, ...) do { \
-		asinine_err_t ret = func((parser), __VA_ARGS__); \
-		if (ret < ASININE_OK) return ret; \
-	} while (0)
+#define RETURN_ON_ERROR(expr) do { \
+		asinine_err_t ret = expr; \
+		if (ret < ASININE_OK) { return ret; } \
+	} while(0)
+#define NEXT_TOKEN(parser) RETURN_ON_ERROR(asn1_parser_next(parser))
 
 asinine_err_t
 x509_parse(x509_cert_t *cert, const uint8_t *data, size_t num)
@@ -48,20 +49,21 @@ x509_parse(x509_cert_t *cert, const uint8_t *data, size_t num)
 
 	memset(cert, 0, sizeof(*cert));
 
-	if (asn1_parser_init(&parser, &token, data, num) < ASININE_OK) {
-		// TODO: This error code chaining is stupid
-		return ASININE_ERROR_INVALID;
-	}
+	RETURN_ON_ERROR(asn1_parser_init(&parser, &token, data, num));
 
 	// Certificate
-	if (asn1_parser_next(&parser) < ASININE_OK || !asn1_is_sequence(&token)) {
+	NEXT_TOKEN(&parser);
+
+	if (!asn1_is_sequence(&token)) {
 		return ASININE_ERROR_INVALID;
 	}
 
 	asn1_parser_descend(&parser);
 
 	// tbsCertificate
-	if (asn1_parser_next(&parser) < ASININE_OK || !asn1_is_sequence(&token)) {
+	NEXT_TOKEN(&parser);
+
+	if (!asn1_is_sequence(&token)) {
 		return ASININE_ERROR_INVALID;
 	}
 
@@ -69,17 +71,16 @@ x509_parse(x509_cert_t *cert, const uint8_t *data, size_t num)
 	asn1_parser_descend(&parser);
 
 	// version
-	if (asn1_parser_next(&parser) < ASININE_OK) {
-		return ASININE_ERROR_INVALID;
-	}
+	NEXT_TOKEN(&parser);
 
 	if (asn1_is(&token, ASN1_CLASS_CONTEXT, 0)) {
 		int version;
 
 		asn1_parser_descend(&parser);
 
-		if (asn1_parser_next(&parser) < ASININE_OK ||
-			asn1_int(&token, &version) < ASININE_OK) {
+		NEXT_TOKEN(&parser);
+
+		if (asn1_int(&token, &version) < ASININE_OK) {
 			return ASININE_ERROR_INVALID;
 		}
 
@@ -90,9 +91,7 @@ x509_parse(x509_cert_t *cert, const uint8_t *data, size_t num)
 		cert->version = (x509_version_t)version;
 		asn1_parser_ascend(&parser, 1);
 
-		if (asn1_parser_next(&parser) < ASININE_OK) {
-			return ASININE_ERROR_INVALID;
-		}
+		NEXT_TOKEN(&parser);
 	} else {
 		cert->version = X509_V1;
 	}
@@ -104,16 +103,16 @@ x509_parse(x509_cert_t *cert, const uint8_t *data, size_t num)
 	}
 
 	// signature
-	if (asn1_parser_next(&parser) < ASININE_OK) {
-		return ASININE_ERROR_INVALID;
-	}
+	NEXT_TOKEN(&parser);
 
 	signature = token;
-	DELEGATE_PARSING(parse_signature, &parser, cert);
+	RETURN_ON_ERROR(parse_signature(&parser, cert));
 
 	// issuer
+	NEXT_TOKEN(&parser);
+
 	// TODO: Sequence might be zero-length, with name in subjectAltName
-	if (asn1_parser_next(&parser) < ASININE_OK || !asn1_is_sequence(&token)) {
+	if (!asn1_is_sequence(&token)) {
 		return ASININE_ERROR_INVALID;
 	}
 
@@ -121,10 +120,12 @@ x509_parse(x509_cert_t *cert, const uint8_t *data, size_t num)
 	asn1_parser_skip_children(&parser);
 
 	// validity
-	DELEGATE_PARSING(parse_validity, &parser, cert);
+	RETURN_ON_ERROR(parse_validity(&parser, cert));
 
 	// subject
-	if (asn1_parser_next(&parser) < ASININE_OK || !asn1_is_sequence(&token)) {
+	NEXT_TOKEN(&parser);
+
+	if (!asn1_is_sequence(&token)) {
 		return ASININE_ERROR_INVALID;
 	}
 
@@ -132,9 +133,7 @@ x509_parse(x509_cert_t *cert, const uint8_t *data, size_t num)
 	asn1_parser_skip_children(&parser);
 
 	// subjectPublicKeyInfo
-	if (asn1_parser_next(&parser) < ASININE_OK) {
-		return ASININE_ERROR_INVALID;
-	}
+	NEXT_TOKEN(&parser);
 
 	if (asn1_is_sequence(&token)) {
 		asn1_parser_skip_children(&parser);
@@ -143,23 +142,25 @@ x509_parse(x509_cert_t *cert, const uint8_t *data, size_t num)
 	}
 
 	// Optional items (X.509 v2 and up)
-	DELEGATE_PARSING(parse_optional, &parser, &tbs_certificate, cert);
+	RETURN_ON_ERROR(parse_optional(&parser, &tbs_certificate, cert));
 
 	// End of tbsCertificate
 	asn1_parser_ascend(&parser, 1);
 
 	// signatureAlgorithm
-	if (asn1_parser_next(&parser) < ASININE_OK ||
-		!asn1_eq(&token, &signature)) {
+	NEXT_TOKEN(&parser);
+
+	if (!asn1_eq(&token, &signature)) {
 		return ASININE_ERROR_INVALID;
 	}
 
 	asn1_parser_skip_children(&parser);
 
 	// signature
+	NEXT_TOKEN(&parser);
+
 	// TODO: Do something with the signature
-	if (asn1_parser_next(&parser) < ASININE_OK ||
-		!asn1_is(&token, ASN1_CLASS_UNIVERSAL, ASN1_TYPE_BITSTRING)) {
+	if (!asn1_is(&token, ASN1_CLASS_UNIVERSAL, ASN1_TYPE_BITSTRING)) {
 		return ASININE_ERROR_INVALID;
 	}
 
@@ -196,10 +197,8 @@ parse_optional(asn1_parser_t *parser, const asn1_token_t *parent,
 {
 #define NEXT_CHILD do { \
 		asinine_err_t ret = asn1_parser_next_child(parser, parent); \
-		if (ret == ASININE_EOF) { \
-			return ASININE_OK; \
-		} else if (ret < ASININE_OK) { \
-			return ASININE_ERROR_INVALID; \
+		if (ret < ASININE_OK) { \
+			return (ret == ASININE_EOF) ? ASININE_OK: ASININE_ERROR_INVALID; \
 		} \
 	} while (0)
 
@@ -227,10 +226,11 @@ parse_optional(asn1_parser_t *parser, const asn1_token_t *parent,
 
 	// extensions
 	if (cert->version >= X509_V3 && asn1_is(token, ASN1_CLASS_CONTEXT, 3)) {
-		DELEGATE_PARSING(parse_extensions, parser, cert);
+		RETURN_ON_ERROR(parse_extensions(parser, cert));
 	}
 
-	return asn1_parser_is_within(parser, parent) ? ASININE_ERROR_INVALID : ASININE_OK;
+	return asn1_parser_is_within(parser, parent) ? ASININE_ERROR_INVALID :
+		ASININE_OK;
 #undef NEXT_CHILD
 }
 
@@ -244,7 +244,9 @@ parse_extensions(asn1_parser_t *parser, x509_cert_t *cert)
 
 	asn1_parser_descend(parser);
 
-	if (asn1_parser_next(parser) < ASININE_OK || !asn1_is_sequence(token)) {
+	NEXT_TOKEN(parser);
+
+	if (!asn1_is_sequence(token)) {
 		return ASININE_ERROR_INVALID;
 	}
 	asn1_parser_descend(parser);
@@ -253,13 +255,17 @@ parse_extensions(asn1_parser_t *parser, x509_cert_t *cert)
 		asn1_oid_t extnid;
 		bool critical;
 
-		if (asn1_parser_next(parser) < ASININE_OK || !asn1_is_sequence(token)) {
+		NEXT_TOKEN(parser);
+
+		if (!asn1_is_sequence(token)) {
 			return ASININE_ERROR_INVALID;
 		}
 		asn1_parser_descend(parser);
 
 		// extnid
-		if (asn1_parser_next(parser) < ASININE_OK || !asn1_is_oid(token)) {
+		NEXT_TOKEN(parser);
+
+		if (!asn1_is_oid(token)) {
 			return ASININE_ERROR_INVALID;
 		}
 
@@ -268,18 +274,14 @@ parse_extensions(asn1_parser_t *parser, x509_cert_t *cert)
 		}
 
 		// critical
-		if (asn1_parser_next(parser) < ASININE_OK) {
-			return ASININE_ERROR_INVALID;
-		}
+		NEXT_TOKEN(parser);
 
 		if (asn1_is_bool(token)) {
 			if (asn1_bool_unsafe(token, &critical) < ASININE_OK) {
 				return ASININE_ERROR_INVALID;
 			}
 
-			if (asn1_parser_next(parser) < ASININE_OK) {
-				return ASININE_ERROR_INVALID;
-			}
+			NEXT_TOKEN(parser);
 		} else {
 			critical = false;
 		}
@@ -317,7 +319,9 @@ parse_signature(asn1_parser_t *parser, x509_cert_t *cert)
 
 	asn1_parser_descend(parser);
 
-	if (asn1_parser_next(parser) < ASININE_OK || !asn1_is_oid(token)) {
+	NEXT_TOKEN(parser);
+
+	if (!asn1_is_oid(token)) {
 		return ASININE_ERROR_INVALID;
 	}
 
@@ -328,7 +332,7 @@ parse_signature(asn1_parser_t *parser, x509_cert_t *cert)
 		return ASININE_ERROR_UNSUPPORTED;
 	}
 
-	DELEGATE_PARSING(algorithm_parser, parser, cert);
+	RETURN_ON_ERROR(algorithm_parser(parser, cert));
 
 	asn1_parser_ascend(parser, 1);
 
@@ -340,14 +344,17 @@ parse_validity(asn1_parser_t *parser, x509_cert_t *cert)
 {
 	const asn1_token_t *token = parser->token;
 
-	if (asn1_parser_next(parser) < ASININE_OK || !asn1_is_sequence(token)) {
+	NEXT_TOKEN(parser);
+
+	if (!asn1_is_sequence(token)) {
 		return ASININE_ERROR_INVALID;
 	}
 
 	asn1_parser_descend(parser);
 
 	// Valid from
-	if (asn1_parser_next(parser) < ASININE_OK || !asn1_is_time(token)) {
+	NEXT_TOKEN(parser);
+	if (!asn1_is_time(token)) {
 		return ASININE_ERROR_INVALID;
 	}
 	if (asn1_time(token, &cert->valid_from) < ASININE_OK) {
@@ -355,7 +362,9 @@ parse_validity(asn1_parser_t *parser, x509_cert_t *cert)
 	}
 
 	// Valid to
-	if (asn1_parser_next(parser) < ASININE_OK || !asn1_is_time(token)) {
+	NEXT_TOKEN(parser);
+
+	if (!asn1_is_time(token)) {
 		return ASININE_ERROR_INVALID;
 	}
 	if (asn1_time(token, &cert->valid_to) != ASININE_OK) {
@@ -373,8 +382,9 @@ parse_null_args(asn1_parser_t *parser, x509_cert_t *cert)
 	const asn1_token_t *token = parser->token;
 	(void) cert;
 
-	if (asn1_parser_next(parser) < ASININE_OK ||
-		!asn1_is(token, ASN1_CLASS_UNIVERSAL, ASN1_TYPE_NULL)) {
+	NEXT_TOKEN(parser);
+
+	if (!asn1_is(token, ASN1_CLASS_UNIVERSAL, ASN1_TYPE_NULL)) {
 		return ASININE_ERROR_INVALID;
 	}
 
