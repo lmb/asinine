@@ -15,14 +15,14 @@
 #define TEST_OID1 ASN1_CONST_OID(1,1,2,4)
 #define TEST_OID2 ASN1_CONST_OID(2,999,1)
 
-#define TOKEN_(typ, dat, len) \
-	{ .class = ASN1_CLASS_UNIVERSAL, .type = (typ), .data = (dat), \
+#define TOKEN_(tag_, dat, len) \
+	{ .class = ASN1_CLASS_UNIVERSAL, .tag = (tag_), .data = (dat), \
 		.length = (len) }
-#define STR_TOKEN(typ, str) TOKEN_(typ, (uint8_t*)(str), strlen(str))
-#define TOKEN(typ, data) TOKEN_(typ, data, sizeof(data))
+#define STR_TOKEN(tag, str) TOKEN_(tag, (uint8_t*)(str), strlen(str))
+#define TOKEN(tag, data) TOKEN_(tag, data, sizeof(data))
 
-#define RAW(type, ...) type, PP_NARG(__VA_ARGS__), __VA_ARGS__
-#define EMPTY_RAW(type) type, 0x00
+#define RAW(tag, ...) tag, PP_NARG(__VA_ARGS__), __VA_ARGS__
+#define EMPTY_RAW(tag) tag, 0x00
 #define SEQ(...) RAW(0x30, __VA_ARGS__)
 #define EMPTY_SEQ() EMPTY_RAW(0x30)
 #define INT(...) RAW(0x02, __VA_ARGS__)
@@ -46,15 +46,15 @@ test_asn1_oid_decode(void)
 	asn1_token_t token;
 	asn1_oid_t oid;
 
-	check(asn1_parser_init(&parser, &token, raw, sizeof(raw)) == ASN1_OK);
-	check(asn1_parser_next(&parser) == ASN1_OK);
+	check(asn1_parser_init(&parser, &token, raw, sizeof(raw)) == ASININE_OK);
+	check(asn1_parser_next(&parser) == ASININE_OK);
 
-	check(asn1_parser_next(&parser) == ASN1_OK);
-	check(asn1_oid(&token, &oid) == ASN1_OK);
+	check(asn1_parser_next(&parser) == ASININE_OK);
+	check(asn1_oid(&token, &oid) == ASININE_OK);
 	check(asn1_oid_eq(&oid, TEST_OID1));
 
-	check(asn1_parser_next(&parser) == ASN1_OK);
-	check(asn1_oid(&token, &oid) == ASN1_OK);
+	check(asn1_parser_next(&parser) == ASININE_OK);
+	check(asn1_oid(&token, &oid) == ASININE_OK);
 	check(asn1_oid_eq(&oid, TEST_OID2));
 
 	return 0;
@@ -77,16 +77,16 @@ test_asn1_oid_decode_invalid(void)
 	asn1_oid_t oid;
 
 	check(asn1_parser_init(&parser, &token, invalid_padding,
-		sizeof(invalid_padding)) == ASN1_OK);
+		sizeof(invalid_padding)) == ASININE_OK);
 
-	check(asn1_parser_next(&parser) == ASN1_OK);
-	check(asn1_oid(&token, &oid) == ASN1_ERROR_INVALID);
-	check(asn1_parser_next(&parser) == ASN1_OK);
-	check(asn1_oid(&token, &oid) == ASN1_ERROR_INVALID);
-	check(asn1_parser_next(&parser) == ASN1_OK);
-	check(asn1_oid(&token, &oid) == ASN1_ERROR_INVALID);
-	check(asn1_parser_next(&parser) == ASN1_OK);
-	check(asn1_oid(&token, &oid) == ASN1_ERROR_INVALID);
+	check(asn1_parser_next(&parser) == ASININE_OK);
+	check(asn1_oid(&token, &oid) == ASININE_ERROR_INVALID);
+	check(asn1_parser_next(&parser) == ASININE_OK);
+	check(asn1_oid(&token, &oid) == ASININE_ERROR_INVALID);
+	check(asn1_parser_next(&parser) == ASININE_OK);
+	check(asn1_oid(&token, &oid) == ASININE_ERROR_INVALID);
+	check(asn1_parser_next(&parser) == ASININE_OK);
+	check(asn1_oid(&token, &oid) == ASININE_ERROR_INVALID);
 
 	return 0;
 }
@@ -149,59 +149,59 @@ test_asn1_parse(void)
 	asn1_token_t token;
 	int value;
 
-	check(asn1_parser_init(&parser, &token, raw, sizeof(raw)) == ASN1_OK);
+	check(asn1_parser_init(&parser, &token, raw, sizeof(raw)) == ASININE_OK);
 
-	check(asn1_parser_next(&parser) == ASN1_OK);
+	check(asn1_parser_next(&parser) == ASININE_OK);
 	check(asn1_is_sequence(&token));
 
-	check(asn1_parser_next(&parser) == ASN1_OK);
+	check(asn1_parser_next(&parser) == ASININE_OK);
 	check(asn1_is_sequence(&token));
 
-	check(asn1_parser_next(&parser) == ASN1_OK);
+	check(asn1_parser_next(&parser) == ASININE_OK);
 	check(asn1_is_int(&token));
-	check(asn1_int(&token, &value) == ASN1_OK);
+	check(asn1_int(&token, &value) == ASININE_OK);
 	check(value == 0x01);
 
-	check(asn1_parser_next(&parser) == ASN1_OK);
+	check(asn1_parser_next(&parser) == ASININE_OK);
 	check(asn1_is_int(&token));
-	check(asn1_int(&token, &value) == ASN1_OK);
+	check(asn1_int(&token, &value) == ASININE_OK);
 	check(value == 0x02);
 
-	check(asn1_parser_next(&parser) == ASN1_OK);
+	check(asn1_parser_next(&parser) == ASININE_OK);
 	check(asn1_is_int(&token));
-	check(asn1_int(&token, &value) == ASN1_OK);
+	check(asn1_int(&token, &value) == ASININE_OK);
 	check(value == -0x10);
 
-	check(asn1_parser_next(&parser) == ASN1_OK);
+	check(asn1_parser_next(&parser) == ASININE_OK);
 	check(asn1_is_sequence(&token));
 
-	check(asn1_parser_next(&parser) == ASN1_OK);
+	check(asn1_parser_next(&parser) == ASININE_OK);
 	check(asn1_is_int(&token));
-	check(asn1_int(&token, &value) == ASN1_OK);
+	check(asn1_int(&token, &value) == ASININE_OK);
 	check(value == 0x11);
 
-	check(asn1_parser_next(&parser) == ASN1_OK);
+	check(asn1_parser_next(&parser) == ASININE_OK);
 	check(asn1_is_sequence(&token));
 
-	check(asn1_parser_next(&parser) == ASN1_OK);
+	check(asn1_parser_next(&parser) == ASININE_OK);
 	check(asn1_is_int(&token));
-	check(asn1_int(&token, &value) == ASN1_OK);
+	check(asn1_int(&token, &value) == ASININE_OK);
 	check(value == 0x01);
 
-	check(asn1_parser_next(&parser) == ASN1_OK);
+	check(asn1_parser_next(&parser) == ASININE_OK);
 	check(asn1_is_sequence(&token));
 
-	check(asn1_parser_next(&parser) == ASN1_OK);
+	check(asn1_parser_next(&parser) == ASININE_OK);
 	check(asn1_is_sequence(&token));
 
-	check(asn1_parser_next(&parser) == ASN1_OK);
+	check(asn1_parser_next(&parser) == ASININE_OK);
 	check(asn1_is_int(&token));
-	check(asn1_int(&token, &value) == ASN1_OK);
+	check(asn1_int(&token, &value) == ASININE_OK);
 	check(value == 0x02);
 
-	check(asn1_parser_next(&parser) == ASN1_OK);
+	check(asn1_parser_next(&parser) == ASININE_OK);
 	check(asn1_is_int(&token));
-	check(asn1_int(&token, &value) == ASN1_OK);
+	check(asn1_int(&token, &value) == ASININE_OK);
 	check(value == 0x03);
 
 	return 0;
@@ -224,18 +224,18 @@ test_asn1_parse_invalid(void)
 	asn1_token_t token;
 
 	check(asn1_parser_init(&parser, &token, invalid1, sizeof(invalid1))
-		== ASN1_OK);
-	check(asn1_parser_next(&parser) == ASN1_ERROR_INVALID);
+		== ASININE_OK);
+	check(asn1_parser_next(&parser) == ASININE_ERROR_INVALID);
 
 	check(asn1_parser_init(&parser, &token, invalid2, sizeof(invalid2))
-		== ASN1_OK);
-	check(asn1_parser_next(&parser) == ASN1_ERROR_INVALID);
+		== ASININE_OK);
+	check(asn1_parser_next(&parser) == ASININE_ERROR_INVALID);
 
 	check(asn1_parser_init(&parser, &token, invalid3, sizeof(invalid3))
-		== ASN1_OK);
-	check(asn1_parser_next(&parser) == ASN1_ERROR_INVALID);
+		== ASININE_OK);
+	check(asn1_parser_next(&parser) == ASININE_ERROR_INVALID);
 
-	check(asn1_parser_init(&parser, &token, NULL, 0) == ASN1_ERROR_INVALID);
+	check(asn1_parser_init(&parser, &token, NULL, 0) == ASININE_ERROR_INVALID);
 
 	return 0;
 }
@@ -262,16 +262,16 @@ test_asn1_parse_time(void)
 
 	asn1_time_t time;
 
-	check(asn1_time(&epoch_token, &time) == ASN1_OK);
+	check(asn1_time(&epoch_token, &time) == ASININE_OK);
 	check(time == 0);
 
-	check(asn1_time(&y2k_token, &time) == ASN1_OK);
+	check(asn1_time(&y2k_token, &time) == ASININE_OK);
 	check(time == 946684800);
 
-	check(asn1_time(&leap_feb_token, &time) == ASN1_OK);
+	check(asn1_time(&leap_feb_token, &time) == ASININE_OK);
 	check(time == 951782400);
 
-	check(asn1_time(&y2k38_token, &time) == ASN1_OK);
+	check(asn1_time(&y2k38_token, &time) == ASININE_OK);
 	check(time == 2147483648);
 
 	return 0;
@@ -312,12 +312,12 @@ test_asn1_parse_invalid_time(void)
 
 	asn1_time_t time;
 
-	check(asn1_time(&garbage_token, &time) == ASN1_ERROR_INVALID);
-	check(asn1_time(&incomplete_token, &time) == ASN1_ERROR_INVALID);
-	check(asn1_time(&missing_tz_token, &time) == ASN1_ERROR_INVALID);
-	check(asn1_time(&midnight_token, &time) == ASN1_ERROR_INVALID);
-	check(asn1_time(&leap_year_token, &time) == ASN1_ERROR_INVALID);
-	check(asn1_time(&days_token, &time) == ASN1_ERROR_INVALID);
+	check(asn1_time(&garbage_token, &time) == ASININE_ERROR_INVALID);
+	check(asn1_time(&incomplete_token, &time) == ASININE_ERROR_INVALID);
+	check(asn1_time(&missing_tz_token, &time) == ASININE_ERROR_INVALID);
+	check(asn1_time(&midnight_token, &time) == ASININE_ERROR_INVALID);
+	check(asn1_time(&leap_year_token, &time) == ASININE_ERROR_INVALID);
+	check(asn1_time(&days_token, &time) == ASININE_ERROR_INVALID);
 
 	return 0;
 }
@@ -327,6 +327,7 @@ test_asn1_all(int *tests_run)
 {
 	declare_set;
 
+	printf("sizeof asn1_oid_t: %lu\n", sizeof(asn1_oid_t));
 	printf("sizeof asn1_token_t: %lu\n", sizeof(asn1_token_t));
 
 	run_test(test_asn1_oid_decode);

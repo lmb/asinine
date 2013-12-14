@@ -16,12 +16,6 @@ extern "C" {
 typedef struct x509_parser x509_parser_t;
 typedef struct x509_cert x509_cert_t;
 
-typedef enum x509_err {
-	X509_OK = 0,
-	X509_ERROR_INVALID = -1,
-	X509_ERROR_UNSUPPORTED = -2
-} x509_err_t;
-
 typedef enum x509_version {
 	X509_V1 = 0,
 	X509_V2 = 1,
@@ -33,27 +27,17 @@ typedef enum x509_algorithm {
 	X509_ALGORITHM_SHA1_RSA,
 } x509_algorithm_t;
 
-typedef struct {
-	asn1_token_t root;
-	size_t num_rdns;
-} x509_name_t;
-
 struct x509_cert {
 	x509_version_t version;
 	x509_algorithm_t algorithm;
-	x509_name_t issuer;
+	asn1_token_t issuer;
+	asn1_token_t subject;
 	asn1_time_t valid_from;
 	asn1_time_t valid_to;
-	x509_name_t subject;
 };
 
-void x509_init(x509_parser_t *parser, const uint8_t *data);
-void x509_cert_init(x509_cert_t *cert);
+asinine_err_t x509_parse(x509_cert_t *cert, const uint8_t *data, size_t num);
 
-x509_err_t x509_parse(x509_cert_t *cert, const uint8_t *data, size_t num);
-x509_err_t x509_validate(const x509_cert_t *cert);
-
-bool x509_name_eq(const x509_name_t *a, const x509_name_t *b);
 #ifdef __cplusplus
 }
 #endif

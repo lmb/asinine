@@ -21,11 +21,11 @@ test_x509_certs(void)
 		const size_t length = x509_certs[i].length;
 
 		switch (x509_parse(&cert, data, length)) {
-			case X509_OK: {
+			case ASININE_OK: {
 				continue;
 			}
 
-			case X509_ERROR_UNSUPPORTED: {
+			case ASININE_ERROR_UNSUPPORTED: {
 				printf("> %s (#%lu) uses unsupported features\n", host, i);
 				errors = true;
 				break;
@@ -39,7 +39,8 @@ test_x509_certs(void)
 		}
 	}
 
-	check(x509_parse(&cert, x509_certs[0].data, x509_certs[0].length) == X509_OK);
+	check(x509_parse(&cert, x509_certs[0].data, x509_certs[0].length) ==
+		ASININE_OK);
 
 	return (!errors) ? 0 : "Some certificates failed to parse";
 }

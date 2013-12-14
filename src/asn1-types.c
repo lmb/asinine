@@ -24,7 +24,7 @@ validate_string(const asn1_token_t *token)
 		return false;
 	}
 
-	switch (token->type) {
+	switch (token->tag) {
 	case ASN1_TYPE_PRINTABLESTRING:
 		for (data = token->data; data < token->data + token->length; data++) {
 			// Space
@@ -120,15 +120,15 @@ validate_string(const asn1_token_t *token)
 }
 
 // 8.23
-asn1_err_t
+asinine_err_t
 asn1_string(const asn1_token_t *token, char *buf, size_t num)
 {
 	if (!validate_string(token)) {
-		return ASN1_ERROR_INVALID;
+		return ASININE_ERROR_INVALID;
 	}
 
 	if (num <= token->length) {
-		return ASN1_ERROR_MEMORY;
+		return ASININE_ERROR_MEMORY;
 	}
 
 	memcpy(buf, token->data, token->length);
@@ -137,10 +137,10 @@ asn1_string(const asn1_token_t *token, char *buf, size_t num)
 	// PRINTABLESTRING can not contain NULL characters per definition
 	if (asn1_is(token, ASN1_CLASS_UNIVERSAL, ASN1_TYPE_IA5STRING) &&
 		strlen(buf) != token->length) {
-		return ASN1_ERROR_INVALID;
+		return ASININE_ERROR_INVALID;
 	}
 
-	return ASN1_OK;
+	return ASININE_OK;
 }
 
 int
@@ -158,14 +158,14 @@ asn1_string_eq(const asn1_token_t *token, const char *str)
 }
 
 // 8.3
-asn1_err_t
+asinine_err_t
 asn1_int_unsafe(const asn1_token_t *token, int *value)
 {
 	bool negative;
 	const uint8_t *data;
 
 	if (token->length > sizeof(*value)) {
-		return ASN1_ERROR_MEMORY;
+		return ASININE_ERROR_MEMORY;
 	}
 
 	data = token->data;
@@ -185,15 +185,15 @@ asn1_int_unsafe(const asn1_token_t *token, int *value)
 		*value = *value * -1;
 	}
 
-	return ASN1_OK;
+	return ASININE_OK;
 }
 
-asn1_err_t
+asinine_err_t
 asn1_int(const asn1_token_t *token, int *value)
 {
 	// TODO: 8.3.2
 	if (!asn1_is_int(token)) {
-		return ASN1_ERROR_INVALID;
+		return ASININE_ERROR_INVALID;
 	}
 
 	return asn1_int_unsafe(token, value);
@@ -210,7 +210,7 @@ decode_pair(const char *data, int *pair)
 	return true;
 }
 
-asn1_err_t
+asinine_err_t
 asn1_time(const asn1_token_t *token, asn1_time_t *time)
 {
 	// YYMMDDHHMM(SS)(Z|+-D)
@@ -241,24 +241,24 @@ asn1_time(const asn1_token_t *token, asn1_time_t *time)
 		part->second = -1;
 
 	if (token->length < MIN_DATA_LEN) {
-		return ASN1_ERROR_INVALID;
+		return ASININE_ERROR_INVALID;
 	}
 
 	for (i = 0; i < 5; data += 2, i++) {
 		if (!decode_pair(data, &t.raw[i])) {
-			return ASN1_ERROR_INVALID;
+			return ASININE_ERROR_INVALID;
 		}
 	}
 
 	if (*data != 'Z') {
 		// Try to decode seconds
-		if (data + 2 >= (char*)token->end) {
+		if (data + 2 >= (char*)(token->data + token->length)) {
 			// Need at least another char for seconds, plus 'Z' or timezone
-			return ASN1_ERROR_INVALID;
+			return ASININE_ERROR_INVALID;
 		}
 
 		if (!decode_pair(data, &part->second)) {
-			return ASN1_ERROR_INVALID;
+			return ASININE_ERROR_INVALID;
 		}
 		data += 2;
 	}
@@ -267,49 +267,49 @@ asn1_time(const asn1_token_t *token, asn1_time_t *time)
 		// TODO: Parse timezone offset (which is not standards conformant)
 		// TODO: If time did not include seconds, do we need to parse
 		// non-conformant timezone offset?
-		return ASN1_ERROR_INVALID;
+		return ASININE_ERROR_INVALID;
 	}
 
 	// Validation
-	if (token->type == ASN1_TYPE_UTCTIME) {
+	if (token->tag == ASN1_TYPE_UTCTIME) {
 		// Years are from (19)50 to (20)49, so 99 is 1999 and 00 is 2000.
 		if (part->year < 0 || part->year > 99) {
-			return ASN1_ERROR_INVALID;
+			return ASININE_ERROR_INVALID;
 		}
 
 		// Normalize years, since the encoding is not linear:
 		// 00 -> 2000, 49 -> 2049, 50 -> 1950, 99 -> 1999
 		part->year += (part->year > 49) ? 1900 : 2000;
 	} else {
-		return ASN1_ERROR_INVALID;
+		return ASININE_ERROR_INVALID;
 	}
 
 	is_leap = part->year % 4 == 0 &&
 		(part->year % 100 != 0 || part->year % 400 == 0);
 
 	if (part->month < 1 || part->month > 12) {
-		return ASN1_ERROR_INVALID;
+		return ASININE_ERROR_INVALID;
 	}
 
 	if (part->day < 1) {
-		return ASN1_ERROR_INVALID;
+		return ASININE_ERROR_INVALID;
 	} else if (is_leap && part->month == 2) {
 		// Check February in leap years
 		if (part->day > 29) {
-			return ASN1_ERROR_INVALID;
+			return ASININE_ERROR_INVALID;
 		}
 	} else if (part->day > days_per_month[part->month - 1]) {
-		return ASN1_ERROR_INVALID;
+		return ASININE_ERROR_INVALID;
 	}
 
 	if (part->hour < 0 || part->hour > 23) {
-		return ASN1_ERROR_INVALID;
+		return ASININE_ERROR_INVALID;
 	}
 
 	// Seconds are "optional"
 	part->second = (part->second == -1) ? 0 : part->second;
 	if (part->second < 0 || part->second > 59) {
-		return ASN1_ERROR_INVALID;
+		return ASININE_ERROR_INVALID;
 	}
 
 	// Convert to UNIX time (approximately)
@@ -339,16 +339,16 @@ asn1_time(const asn1_token_t *token, asn1_time_t *time)
 
 	*time += leap_days * SECONDS_PER_DAY;
 
-	return ASN1_OK;
+	return ASININE_OK;
 }
 
-asn1_err_t
+asinine_err_t
 asn1_bool_unsafe(const asn1_token_t *token, bool *value)
 {
 	uint8_t data;
 
 	if (token->length != 1) {
-		return ASN1_ERROR_INVALID;
+		return ASININE_ERROR_INVALID;
 	}
 
 	data = *token->data;
@@ -358,37 +358,46 @@ asn1_bool_unsafe(const asn1_token_t *token, bool *value)
 	} else if (data == 0xFF) {
 		*value = true;
 	} else {
-		return ASN1_ERROR_INVALID;
+		return ASININE_ERROR_INVALID;
 	}
 
-	return ASN1_OK;
+	return ASININE_OK;
 }
 
-asn1_err_t
+asinine_err_t
 asn1_bool(const asn1_token_t *token, bool *value)
 {
 	if (!asn1_is_bool(token)) {
-		return ASN1_ERROR_INVALID;
+		return ASININE_ERROR_INVALID;
 	}
 
 	return asn1_bool_unsafe(token, value);
 }
 
 const char*
-asn1_type_to_string(asn1_type_t type)
+asn1_type_to_string(asn1_class_t class, asn1_tag_t type)
 {
+	if (class != ASN1_CLASS_UNIVERSAL) {
+		return "INVALID CLASS";
+	}
+
 #define case_for_type(x) case x: return #x
-	switch(type) {
+	switch((asn1_universal_tag_t)type) {
 		case_for_type(ASN1_TYPE_BOOL);
 		case_for_type(ASN1_TYPE_INT);
 		case_for_type(ASN1_TYPE_BITSTRING);
 		case_for_type(ASN1_TYPE_OCTETSTRING);
 		case_for_type(ASN1_TYPE_NULL);
 		case_for_type(ASN1_TYPE_OID);
+		case_for_type(ASN1_TYPE_UTF8STRING);
 		case_for_type(ASN1_TYPE_SEQUENCE);
 		case_for_type(ASN1_TYPE_SET);
 		case_for_type(ASN1_TYPE_PRINTABLESTRING);
+		case_for_type(ASN1_TYPE_T61STRING);
+		case_for_type(ASN1_TYPE_IA5STRING);
 		case_for_type(ASN1_TYPE_UTCTIME);
+		case_for_type(ASN1_TYPE_GENERALIZEDTIME);
+		case_for_type(ASN1_TYPE_VISIBLESTRING);
 	}
 #undef case_for_type
 
@@ -411,16 +420,16 @@ asn1_eq(const asn1_token_t *a, const asn1_token_t *b)
 	// TODO: Check that both tokens are ->is_valid?
 	return (a->length == b->length) &&
 	       (a->class == b->class) &&
-	       (a->type == b->type) &&
+	       (a->tag == b->tag) &&
 	       (a->is_primitive == b->is_primitive) &&
 	       (memcmp(a->data, b->data, a->length) == 0);
 }
 
 int
-asn1_is(const asn1_token_t *token, asn1_class_t class, asn1_type_t type)
+asn1_is(const asn1_token_t *token, asn1_class_t class, asn1_tag_t tag)
 {
 	return (token != NULL) && (token->class == class) &&
-		(token->type == type);
+		(token->tag == tag);
 }
 
 int
@@ -428,7 +437,7 @@ asn1_is_time(const asn1_token_t *token)
 {
 	return (token != NULL) &&
 		(token->class == ASN1_CLASS_UNIVERSAL) &&
-		(token->type == ASN1_TYPE_UTCTIME);
+		(token->tag == ASN1_TYPE_UTCTIME);
 }
 
 int
@@ -436,9 +445,9 @@ asn1_is_string(const asn1_token_t *token)
 {
 	return (token != NULL) &&
 		(token->class == ASN1_CLASS_UNIVERSAL) &&
-		(token->type == ASN1_TYPE_PRINTABLESTRING ||
-			token->type == ASN1_TYPE_IA5STRING ||
-			token->type == ASN1_TYPE_UTF8STRING ||
-			token->type == ASN1_TYPE_VISIBLESTRING ||
-			token->type == ASN1_TYPE_T61STRING);
+		(token->tag == ASN1_TYPE_PRINTABLESTRING ||
+			token->tag == ASN1_TYPE_IA5STRING ||
+			token->tag == ASN1_TYPE_UTF8STRING ||
+			token->tag == ASN1_TYPE_VISIBLESTRING ||
+			token->tag == ASN1_TYPE_T61STRING);
 }

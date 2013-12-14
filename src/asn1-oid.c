@@ -28,7 +28,7 @@ append_arc(asn1_oid_t *oid, asn1_oid_arc_t arc)
 }
 
 // 8.19
-asn1_err_t
+asinine_err_t
 asn1_oid(const asn1_token_t *token, asn1_oid_t *oid)
 {
 	asn1_oid_arc_t arc;
@@ -39,18 +39,18 @@ asn1_oid(const asn1_token_t *token, asn1_oid_t *oid)
 	memset(oid, 0, sizeof(*oid));
 
 	if (!asn1_is(token, ASN1_CLASS_UNIVERSAL, ASN1_TYPE_OID)) {
-		return ASN1_ERROR_INVALID;
+		return ASININE_ERROR_INVALID;
 	}
 
 	if (token->data == NULL || token->length == 0) {
-		return ASN1_ERROR_INVALID;
+		return ASININE_ERROR_INVALID;
 	}
 
 	// 8.19.2 "[...] last in the series: bit 8 of the last octet is zero; [...]"
 	// Since we need to have the end of a series at the end of this token, we
 	// check here.
 	if ((*(token->data + token->length - 1) & OID_CONTINUATION_MASK) != 0) {
-		return ASN1_ERROR_INVALID;
+		return ASININE_ERROR_INVALID;
 	}
 
 	arc = 0;
@@ -61,14 +61,14 @@ asn1_oid(const asn1_token_t *token, asn1_oid_t *oid)
 		if (arc == 0 && *data == 0x80) {
 			// 8.19.2 "the leading octet of the subidentifier shall not have the
 			// value 0x80"
-			return ASN1_ERROR_INVALID;
+			return ASININE_ERROR_INVALID;
 		} 
 
 		arc = (arc << OID_VALUE_BITS_PER_BYTE) | (*data & OID_VALUE_MASK);
 		arc_bits += OID_VALUE_BITS_PER_BYTE;
 
 		if (arc_bits > sizeof(arc) * 8) {
-			return ASN1_ERROR_MEMORY;
+			return ASININE_ERROR_MEMORY;
 		}
 
 		if ((*data & OID_CONTINUATION_MASK) == 0) {
@@ -79,7 +79,7 @@ asn1_oid(const asn1_token_t *token, asn1_oid_t *oid)
 				asn1_oid_arc_t x = MIN(arc, 80) / 40;
 
 				if (!append_arc(oid, x)) {
-					return ASN1_ERROR_MEMORY;
+					return ASININE_ERROR_MEMORY;
 				}
 
 				arc = (arc - (x * 40));
@@ -87,7 +87,7 @@ asn1_oid(const asn1_token_t *token, asn1_oid_t *oid)
 			}
 
 			if (!append_arc(oid, arc)) {
-				return ASN1_ERROR_MEMORY;
+				return ASININE_ERROR_MEMORY;
 			}
 
 			arc = 0;
@@ -95,7 +95,7 @@ asn1_oid(const asn1_token_t *token, asn1_oid_t *oid)
 		}
 	}
 
-	return ASN1_OK;
+	return ASININE_OK;
 }
 
 bool
@@ -111,7 +111,7 @@ asn1_oid_to_string(const asn1_oid_t *oid, char *buffer, size_t num)
 		size_t written;
 
 		if (num == 0) {
-			return ASN1_ERROR_MEMORY;
+			return false;
 		}
 
 		written = snprintf(buffer, num, "%d.", oid->arcs[i]);
@@ -128,14 +128,14 @@ asn1_oid_to_string(const asn1_oid_t *oid, char *buffer, size_t num)
 	return true;
 }
 
-int
+bool
 asn1_oid_eq(const asn1_oid_t *oid, size_t num, ...)
 {
 	size_t i;
 	va_list arcs;
 
 	if (oid->num != num) {
-		return 0;
+		return false;
 	}
 
 	va_start(arcs, num);
@@ -143,17 +143,20 @@ asn1_oid_eq(const asn1_oid_t *oid, size_t num, ...)
 		asn1_oid_arc_t arc = va_arg(arcs, asn1_oid_arc_t);
 
 		if (oid->arcs[i] != arc) {
-			return 0;
+			return false;
 		}
 	}
 	va_end(arcs);
 
-	return 1;
+	return true;
 }
 
 int
 asn1_oid_cmp(const asn1_oid_t *a, const asn1_oid_t *b)
 {
-	// TODO: What happens if arcs are of different length?
+	if (a->num != b->num) {
+		return (a->num < b->num) ? -1 : 1;
+	}
+
 	return memcmp(a->arcs, b->arcs, ASN1_OID_MAXIMUM_DEPTH);
 }

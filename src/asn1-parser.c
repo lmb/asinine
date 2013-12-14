@@ -40,13 +40,13 @@ update_depth(asn1_parser_t *parser)
 	}
 }
 
-asn1_err_t
+asinine_err_t
 asn1_parser_init(asn1_parser_t *parser, asn1_token_t *token,
 	const uint8_t *data, size_t length)
 {
 	if (parser == NULL || token == NULL || data == NULL || length == 0)
 	{
-		return ASN1_ERROR_INVALID;
+		return ASININE_ERROR_INVALID;
 	}
 
 	memset(parser, 0, sizeof *parser);
@@ -56,29 +56,29 @@ asn1_parser_init(asn1_parser_t *parser, asn1_token_t *token,
 
 	parser->parents[0] = data + length;
 
-	return ASN1_OK;
+	return ASININE_OK;
 }
 
-asn1_err_t
+asinine_err_t
 asn1_parser_ascend(asn1_parser_t *parser, size_t levels)
 {
 	if (levels >= parser->constraint) {
-		return ASN1_ERROR_INVALID;
+		return ASININE_ERROR_INVALID;
 	}
 
 	parser->constraint -= levels;
-	return ASN1_OK;
+	return ASININE_OK;
 }
 
-asn1_err_t
+asinine_err_t
 asn1_parser_descend(asn1_parser_t *parser)
 {
 	if (parser->constraint >= NUM(parser->parents)) {
-		return ASN1_ERROR_INVALID;
+		return ASININE_ERROR_INVALID;
 	}
 
 	parser->constraint += 1;
-	return ASN1_OK;
+	return ASININE_OK;
 }
 
 void
@@ -87,7 +87,7 @@ asn1_parser_skip_children(asn1_parser_t *parser)
 	const asn1_token_t * const token = parser->token;
 
 	if (!token->is_primitive) {
-		parser->current = token->end;
+		parser->current = token->data + token->length;
 
 		update_depth(parser);
 	}
@@ -96,37 +96,32 @@ asn1_parser_skip_children(asn1_parser_t *parser)
 bool
 asn1_parser_is_within(const asn1_parser_t *parser, const asn1_token_t *token)
 {
-	return parser->current < token->end;
+	return parser->current < token->data + token->length;
 }
 
-const asn1_token_t*
-asn1_parser_token(const asn1_parser_t *parser)
-{
-	return parser->token;
-}
-
-asn1_err_t
+asinine_err_t
 asn1_parser_next(asn1_parser_t *parser)
 {
 #define INC_CURRENT do { \
 		parser->current++; \
 		if (parser->current >= parent) { \
-			return ASN1_ERROR_INVALID; \
+			return ASININE_ERROR_INVALID; \
 		} \
 	} while (0)
 
 	const uint8_t * const parent = parser->parents[parser->depth];
+	const uint8_t *end;
 	asn1_token_t *token = parser->token;
 
 	if (parser->current == parent) {
-		return ASN1_ERROR_EOF;
+		return ASININE_EOF;
 	} else if (parser->current > parent) {
-		return ASN1_ERROR_INVALID;
+		return ASININE_ERROR_INVALID;
 	}
 
 	if (parser->constraint > 0 &&
 		parser->constraint != parser->depth) {
-		return ASN1_ERROR_INVALID;
+		return ASININE_ERROR_INVALID;
 	}
 
 	memset(token, 0, sizeof *token);
@@ -135,24 +130,24 @@ asn1_parser_next(asn1_parser_t *parser)
 	token->is_primitive = IDENTIFIER_IS_PRIMITIVE(*parser->current);
 
 	// Type (8.1.2)
-	token->type = *parser->current & IDENTIFIER_TAG_MASK;
+	token->tag = *parser->current & IDENTIFIER_TAG_MASK;
 	INC_CURRENT;
 
-	if (token->type == IDENTIFIER_MULTIPART_TAG) {
+	if (token->tag == IDENTIFIER_MULTIPART_TAG) {
 		size_t bits;
 
 		// 8.1.2.4.2
 		bits = 0;
-		token->type = 0;
+		token->tag = 0;
 
 		do {
-			token->type <<= 7;
-			token->type |= *parser->current & IDENTIFIER_MULTIPART_TAG_MASK;
+			token->tag <<= 7;
+			token->tag |= *parser->current & IDENTIFIER_MULTIPART_TAG_MASK;
 			INC_CURRENT;
 
 			bits += 7;
-			if (bits > sizeof token->type * 8) {
-				return ASN1_ERROR_MEMORY;
+			if (bits > sizeof token->tag * 8) {
+				return ASININE_ERROR_MEMORY;
 			}
 		} while (*parser->current & 0x80);
 	}
@@ -164,13 +159,13 @@ asn1_parser_next(asn1_parser_t *parser)
 		num_bytes = *parser->current & CONTENT_LENGTH_MASK;
 
 		if (num_bytes == CONTENT_LENGTH_LONG_RESERVED) {
-			return ASN1_ERROR_INVALID;
+			return ASININE_ERROR_INVALID;
 		} else if (num_bytes == 0) {
 			// Indefinite form is not supported (X.690 11/2008 8.1.3.6)
-			return ASN1_ERROR_INVALID;
+			return ASININE_ERROR_INVALID;
 		} else if (num_bytes > sizeof token->length) {
 			// TODO: Write a test for this
-			return ASN1_ERROR_UNSUPPORTED;
+			return ASININE_ERROR_UNSUPPORTED;
 		}
 
 		token->length = 0;
@@ -188,37 +183,37 @@ asn1_parser_next(asn1_parser_t *parser)
 
 	parser->current++;
 	token->data = parser->current;
-	token->end  = parser->current + token->length;
+	end = token->data + token->length;
 
-	if (parser->depth == 0 && token->end != parent) {
-		return ASN1_ERROR_INVALID;
-	} else if (token->end > parent) {
-		return ASN1_ERROR_INVALID;
+	if (parser->depth == 0 && end != parent) {
+		return ASININE_ERROR_INVALID;
+	} else if (end > parent) {
+		return ASININE_ERROR_INVALID;
 	}
 
 	if (token->is_primitive) {
-		parser->current = token->end;
+		parser->current = end;
 	} else {
 		parser->depth++;
 
 		if (parser->depth >= NUM(parser->parents)) {
-			return ASN1_ERROR_INVALID;
+			return ASININE_ERROR_INVALID;
 		}
 
-		parser->parents[parser->depth] = token->end;
+		parser->parents[parser->depth] = end;
 	}
 
 	update_depth(parser);
 
-	return ASN1_OK;
+	return ASININE_OK;
 #undef INC_CURRENT
 }
 
-asn1_err_t
+asinine_err_t
 asn1_parser_next_child(asn1_parser_t *parser, const asn1_token_t *parent)
 {
 	if (!asn1_parser_is_within(parser, parent)) {
-		return ASN1_ERROR_EOF;
+		return ASININE_EOF;
 	}
 
 	return asn1_parser_next(parser);
