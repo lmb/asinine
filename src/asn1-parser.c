@@ -94,9 +94,15 @@ asn1_parser_skip_children(asn1_parser_t *parser)
 }
 
 bool
-asn1_parser_is_within(const asn1_parser_t *parser, const asn1_token_t *token)
+asn1_parser_eot(const asn1_parser_t *parser, const asn1_token_t *token)
 {
-	return parser->current < token->data + token->length;
+	return parser->current >= token->data + token->length;
+}
+
+bool
+asn1_parser_eof(const asn1_parser_t *parser)
+{
+	return parser->current == parser->parents[parser->depth];
 }
 
 asinine_err_t
@@ -113,9 +119,7 @@ asn1_parser_next(asn1_parser_t *parser)
 	const uint8_t *end;
 	asn1_token_t *token = parser->token;
 
-	if (parser->current == parent) {
-		return ASININE_EOF;
-	} else if (parser->current > parent) {
+	if (parser->current >= parent) {
 		return ASININE_ERROR_INVALID;
 	}
 
@@ -207,14 +211,4 @@ asn1_parser_next(asn1_parser_t *parser)
 
 	return ASININE_OK;
 #undef INC_CURRENT
-}
-
-asinine_err_t
-asn1_parser_next_child(asn1_parser_t *parser, const asn1_token_t *parent)
-{
-	if (!asn1_parser_is_within(parser, parent)) {
-		return ASININE_EOF;
-	}
-
-	return asn1_parser_next(parser);
 }

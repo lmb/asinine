@@ -121,7 +121,7 @@ validate_string(const asn1_token_t *token)
 
 // 8.23
 asinine_err_t
-asn1_string(const asn1_token_t *token, char *buf, size_t num)
+asn1_string(const asn1_token_t *token, char *buf, const size_t num)
 {
 	if (!validate_string(token)) {
 		return ASININE_ERROR_INVALID;
@@ -135,6 +135,7 @@ asn1_string(const asn1_token_t *token, char *buf, size_t num)
 	buf[token->length] = '\0';
 
 	// PRINTABLESTRING can not contain NULL characters per definition
+	// TODO: Update me
 	if (asn1_is(token, ASN1_CLASS_UNIVERSAL, ASN1_TYPE_IA5STRING) &&
 		strlen(buf) != token->length) {
 		return ASININE_ERROR_INVALID;
@@ -157,6 +158,70 @@ asn1_string_eq(const asn1_token_t *token, const char *str)
 	return memcmp(token->data, str, token->length) == 0;
 }
 
+// 8.6
+asinine_err_t
+asn1_bitstring(const asn1_token_t *token, uint8_t *buf, const size_t num)
+{
+	// Thank you http://stackoverflow.com/a/2603254
+	static const uint8_t lookup[16] = {
+		0x0, 0x8, 0x4, 0xC,
+		0x2, 0xA, 0x6, 0xE,
+		0x1, 0x9, 0x5, 0xD,
+		0x3, 0xB, 0x7, 0xF
+	};
+
+	/* First byte is number of unused bits in the last byte, must be <= 7. Last
+	 * byte must not be 0, since it is not the smallest possible encoding.
+	 * An empty bitstring is encoded as first byte 0 and no further data.
+	 */
+	uint8_t unused_bits;
+	size_t i, j;
+
+	// 8.6.2.2 and 10.2
+	if (token->length < 1 || !token->is_primitive) {
+		return ASININE_ERROR_INVALID;
+	}
+
+	if (token->length - 1 > num) {
+		return ASININE_ERROR_MEMORY;
+	}
+
+	memset(buf, 0, num);
+	unused_bits = token->data[0];
+
+	// 8.6.2.2
+	if (unused_bits > 7) {
+		return ASININE_ERROR_INVALID;
+	}
+
+	// 8.6.2.3
+	if (token->length == 1) {
+		return (unused_bits == 0) ? ASININE_OK : ASININE_ERROR_INVALID;
+	}
+
+	// 11.2.2
+	if (token->data[token->length - 1] == 0) {
+		return ASININE_ERROR_INVALID;
+	}
+
+	// 11.2.1
+	if (unused_bits > 0) {
+		unused_bits = (1 << unused_bits) - 1;
+
+		if ((token->data[token->length - 1] & unused_bits) != 0) {
+			return ASININE_ERROR_INVALID;
+		}
+	}
+
+	for (i = 1, j = 0; i < token->length; i++, j++) {
+		const uint8_t data = token->data[i];
+
+		buf[j] = (lookup[data & 0xf] << 4) | lookup[data >> 4];
+	}
+
+	return ASININE_OK;
+}
+
 // 8.3
 asinine_err_t
 asn1_int_unsafe(const asn1_token_t *token, int *value)
@@ -164,7 +229,7 @@ asn1_int_unsafe(const asn1_token_t *token, int *value)
 	bool negative;
 	const uint8_t *data;
 
-	if (token->length > sizeof(*value)) {
+	if (token->length > sizeof *value) {
 		return ASININE_ERROR_MEMORY;
 	}
 

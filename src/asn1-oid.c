@@ -36,6 +36,7 @@ asn1_oid(const asn1_token_t *token, asn1_oid_t *oid)
 	size_t arc_bits;
 	const uint8_t *data;
 
+	// Zero every OID so that asn1_oid_cmp works
 	memset(oid, 0, sizeof(*oid));
 
 	if (!asn1_is(token, ASN1_CLASS_UNIVERSAL, ASN1_TYPE_OID)) {
@@ -154,9 +155,6 @@ asn1_oid_eq(const asn1_oid_t *oid, size_t num, ...)
 int
 asn1_oid_cmp(const asn1_oid_t *a, const asn1_oid_t *b)
 {
-	if (a->num != b->num) {
-		return (a->num < b->num) ? -1 : 1;
-	}
-
-	return memcmp(a->arcs, b->arcs, ASN1_OID_MAXIMUM_DEPTH);
+	// Works because all unused arcs are guaranteed to be zero by asn1_oid
+	return memcmp(a->arcs, b->arcs, sizeof a->arcs);
 }

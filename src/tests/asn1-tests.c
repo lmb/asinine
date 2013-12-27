@@ -15,11 +15,11 @@
 #define TEST_OID1 ASN1_CONST_OID(1,1,2,4)
 #define TEST_OID2 ASN1_CONST_OID(2,999,1)
 
-#define TOKEN_(tag_, dat, len) \
+#define TOKEN_(tag_, dat, len, primitive) \
 	{ .class = ASN1_CLASS_UNIVERSAL, .tag = (tag_), .data = (dat), \
-		.length = (len) }
-#define STR_TOKEN(tag, str) TOKEN_(tag, (uint8_t*)(str), strlen(str))
-#define TOKEN(tag, data) TOKEN_(tag, data, sizeof(data))
+		.length = (len), .is_primitive = (primitive) }
+#define STR_TOKEN(tag, str) TOKEN_(tag, (uint8_t*)(str), strlen(str), false)
+#define TOKEN(tag, data, primitive) TOKEN_(tag, data, sizeof(data), primitive)
 
 #define RAW(tag, ...) tag, PP_NARG(__VA_ARGS__), __VA_ARGS__
 #define EMPTY_RAW(tag) tag, 0x00
@@ -119,6 +119,54 @@ test_asn1_oid_comparison(void)
 	check(asn1_oid_cmp(&a, &b) < 0);
 	check(asn1_oid_cmp(&b, &a) > 0);
 	check(asn1_oid_cmp(&a, &c) == 0);
+
+	return 0;
+}
+
+static char*
+test_asn1_bitstring_decode(void)
+{
+	const uint8_t valid1[] = { 0x04, 0xaa, 0xf0 };
+	const uint8_t valid2[] = { 0x00 };
+
+	const asn1_token_t token1 = TOKEN(ASN1_TYPE_BITSTRING, valid1, true);
+	const asn1_token_t token2 = TOKEN(ASN1_TYPE_BITSTRING, valid2, true);
+
+	uint8_t buf[2];
+
+	check(asn1_bitstring(&token1, buf, sizeof buf) == ASININE_OK);
+	check(buf[0] == 0x55);
+	check(buf[1] == 0x0f);
+
+	check(asn1_bitstring(&token2, buf, sizeof buf) == ASININE_OK);
+	check(buf[0] == 0);
+	check(buf[1] == 0);
+
+	return 0;
+}
+
+static char*
+test_asn1_bitstring_decode_invalid(void)
+{
+	const uint8_t valid1[] = { 0x00 };
+	const uint8_t invalid1[] = { 0x04, 0x0f };
+	const uint8_t invalid2[] = { 0xff, 0x0f };
+	const uint8_t invalid3[] = { 0x01 };
+	const uint8_t invalid4[] = { 0x00, 0x00 };
+
+	const asn1_token_t token1 = TOKEN(ASN1_TYPE_BITSTRING, valid1, false);
+	const asn1_token_t token2 = TOKEN(ASN1_TYPE_BITSTRING, invalid1, true);
+	const asn1_token_t token3 = TOKEN(ASN1_TYPE_BITSTRING, invalid2, true);
+	const asn1_token_t token4 = TOKEN(ASN1_TYPE_BITSTRING, invalid3, true);
+	const asn1_token_t token5 = TOKEN(ASN1_TYPE_BITSTRING, invalid4, true);
+
+	uint8_t buf[1];
+
+	check(asn1_bitstring(&token1, buf, sizeof buf) == ASININE_ERROR_INVALID);
+	check(asn1_bitstring(&token2, buf, 0) == ASININE_ERROR_MEMORY);
+	check(asn1_bitstring(&token2, buf, sizeof buf) == ASININE_ERROR_INVALID);
+	check(asn1_bitstring(&token3, buf, sizeof buf) == ASININE_ERROR_INVALID);
+	check(asn1_bitstring(&token4, buf, sizeof buf) == ASININE_ERROR_INVALID);
 
 	return 0;
 }
@@ -334,6 +382,8 @@ test_asn1_all(int *tests_run)
 	run_test(test_asn1_oid_decode_invalid);
 	run_test(test_asn1_oid_to_string);
 	run_test(test_asn1_oid_comparison);
+	run_test(test_asn1_bitstring_decode);
+	run_test(test_asn1_bitstring_decode_invalid);
 	run_test(test_asn1_parse);
 	run_test(test_asn1_parse_invalid);
 	run_test(test_asn1_parse_time);

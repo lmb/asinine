@@ -25,12 +25,11 @@ extern "C" {
 
 typedef enum asinine_err {
 	ASININE_OK                =  0,
-	ASININE_EOF               = -1,
-	ASININE_ERROR_INVALID     = -2,
-	ASININE_ERROR_MEMORY      = -3,
-	ASININE_ERROR_UNSUPPORTED = -4,
-	ASININE_ERROR_UNTRUSTED   = -5,
-	ASININE_ERROR_EXPIRED     = -6
+	ASININE_ERROR_INVALID     = -1,
+	ASININE_ERROR_MEMORY      = -2,
+	ASININE_ERROR_UNSUPPORTED = -3,
+	ASININE_ERROR_UNTRUSTED   = -4,
+	ASININE_ERROR_EXPIRED     = -5
 } asinine_err_t;
 
 /**
@@ -85,8 +84,6 @@ asinine_err_t asn1_parser_init(asn1_parser_t *parser, asn1_token_t *token,
 	const uint8_t *data, size_t length);
 
 asinine_err_t asn1_parser_next(asn1_parser_t *parser);
-asinine_err_t asn1_parser_next_child(asn1_parser_t *parser,
-	const asn1_token_t *parent);
 /**
  * Skip over all children of the current token
  * @param  parser ASN.1 parser
@@ -95,7 +92,8 @@ asinine_err_t asn1_parser_next_child(asn1_parser_t *parser,
  *         on a full parse.
  */
 void asn1_parser_skip_children(asn1_parser_t *parser);
-bool asn1_parser_is_within(const asn1_parser_t *parser, const asn1_token_t *token);
+bool asn1_parser_eot(const asn1_parser_t *parser, const asn1_token_t *token);
+bool asn1_parser_eof(const asn1_parser_t *parser);
 asinine_err_t asn1_parser_ascend(asn1_parser_t *parser, size_t levels);
 asinine_err_t asn1_parser_descend(asn1_parser_t *parser);
 
@@ -107,8 +105,27 @@ typedef struct asn1_oid {
 } asn1_oid_t;
 
 /* Types */
-asinine_err_t asn1_string(const asn1_token_t *token, char *buf, size_t num);
+asinine_err_t asn1_string(const asn1_token_t *token, char *buf,
+	const size_t num);
 int asn1_string_eq(const asn1_token_t *token, const char *str);
+
+/**
+ * Deserialize an ASN.1 Bitstring
+ *
+ * The unserialized bytes are in the correct bit, but not byte order. This means
+ * that byte swapping has to be handled by the caller.
+ *
+ * Bit positions are transposed like this ('|' is a byte boundary) from the
+ * bitstring specification:
+ * | 0 1 2 3 4 5 6 7 | 8 9 … | -> | 7 6 5 4 3 2 1 0 | … 9 8 |
+ * 
+ * @param  token Bitstring token
+ * @param  buf   Target buffer
+ * @param  num   Size of target buffer
+ * @return       ASININE_OK on success, < ASININE_OK on error
+ */
+asinine_err_t asn1_bitstring(const asn1_token_t *token, uint8_t *buf,
+	const size_t num);
 
 asinine_err_t asn1_int(const asn1_token_t *token, int *value);
 asinine_err_t asn1_int_unsafe(const asn1_token_t *token, int *value);
