@@ -56,6 +56,7 @@ typedef enum x509_ext_keyuse {
 struct x509_cert {
 	x509_version_t version;
 	x509_algorithm_t algorithm;
+	asn1_token_t certificate;
 	asn1_token_t issuer;
 	asn1_token_t subject;
 	asn1_time_t valid_from;

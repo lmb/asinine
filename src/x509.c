@@ -54,13 +54,11 @@ typedef struct {
 	extension_parser_t parser;
 } extension_lookup_t;
 
-static asinine_err_t parse_optional(asn1_parser_t *, const asn1_token_t *,
-	x509_cert_t *);
+static asinine_err_t parse_optional(asn1_parser_t *, x509_cert_t *);
 static asinine_err_t parse_extensions(asn1_parser_t *, x509_cert_t *);
 static asinine_err_t parse_null_args(asn1_parser_t *, x509_cert_t *);
 static asinine_err_t parse_signature(asn1_parser_t *, x509_cert_t *);
 static asinine_err_t parse_validity(asn1_parser_t *, x509_cert_t *);
-static asinine_err_t parse_name(asn1_parser_t *, asn1_token_t *);
 
 static asinine_err_t parse_extn_key_usage(x509_cert_t *, const asn1_token_t *);
 static asinine_err_t parse_extn_ext_key_usage(x509_cert_t *,
@@ -108,7 +106,7 @@ static const extension_lookup_t extensions[] = {
 asinine_err_t
 x509_parse(x509_cert_t *cert, const uint8_t *data, size_t num)
 {
-	asn1_token_t token, tbs_certificate, signature;
+	asn1_token_t token, signature;
 	asn1_parser_t parser;
 
 	memset(cert, 0, sizeof(*cert));
@@ -131,7 +129,7 @@ x509_parse(x509_cert_t *cert, const uint8_t *data, size_t num)
 		return ASININE_ERROR_INVALID;
 	}
 
-	tbs_certificate = token;
+	cert->certificate = token;
 	asn1_parser_descend(&parser);
 
 	// version
@@ -206,7 +204,7 @@ x509_parse(x509_cert_t *cert, const uint8_t *data, size_t num)
 	}
 
 	// Optional items (X.509 v2 and up)
-	RETURN_ON_ERROR(parse_optional(&parser, &tbs_certificate, cert));
+	RETURN_ON_ERROR(parse_optional(&parser, cert));
 
 	// End of tbsCertificate
 	asn1_parser_ascend(&parser, 1);
@@ -246,9 +244,9 @@ find_algorithm(x509_cert_t *cert, const asn1_oid_t *oid)
 }
 
 static asinine_err_t
-parse_optional(asn1_parser_t *parser, const asn1_token_t *parent,
-	x509_cert_t *cert)
+parse_optional(asn1_parser_t *parser, x509_cert_t *cert)
 {
+	const asn1_token_t * const parent = &cert->certificate;
 	const asn1_token_t * const token = parser->token;
 
 	NEXT_CHILD(parser, parent);
