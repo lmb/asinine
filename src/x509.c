@@ -249,9 +249,9 @@ parse_optional(asn1_parser_t *parser, x509_cert_t *cert)
 	const asn1_token_t * const parent = &cert->certificate;
 	const asn1_token_t * const token = parser->token;
 
-	NEXT_CHILD(parser, parent);
-
 	if (cert->version >= X509_V2) {
+		NEXT_CHILD(parser, parent);
+
 		// issuerUniqueID
 		if (asn1_is(token, ASN1_CLASS_CONTEXT, 1)) {
 			// TODO: Do something
@@ -267,10 +267,17 @@ parse_optional(asn1_parser_t *parser, x509_cert_t *cert)
 
 			NEXT_CHILD(parser, parent);
 		}
-	}
 
-	// extensions
-	if (cert->version >= X509_V3 && asn1_is(token, ASN1_CLASS_CONTEXT, 3)) {
+		// extensions
+		if (cert->version != X509_V3) {
+			// We should not be here if this is not a V3 cert
+			return ASININE_ERROR_INVALID;
+		}
+
+		if (!asn1_is(token, ASN1_CLASS_CONTEXT, 3)) {
+			return ASININE_ERROR_INVALID;
+		}
+
 		RETURN_ON_ERROR(parse_extensions(parser, cert));
 	}
 
