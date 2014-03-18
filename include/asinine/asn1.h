@@ -24,14 +24,15 @@ extern "C" {
 #define ASN1_MAXIMUM_DEPTH 10
 
 typedef enum asinine_err {
-	ASININE_OK                     =   0,
-	ASININE_ERROR_INVALID          = -10,
-	ASININE_ERROR_MEMORY           = -20,
-	ASININE_ERROR_UNSUPPORTED      = -30,
-	ASININE_ERROR_UNSUPPORTED_ALGO = -31,
-	ASININE_ERROR_UNSUPPORTED_EXTN = -32,
-	ASININE_ERROR_UNTRUSTED        = -40,
-	ASININE_ERROR_EXPIRED          = -50
+	ASININE_OK                      =   0,
+	ASININE_ERROR_MALFORMED         = -10,
+	ASININE_ERROR_MEMORY            = -20,
+	ASININE_ERROR_UNSUPPORTED       = -30,
+	ASININE_ERROR_UNSUPPORTED_ALGO  = -31,
+	ASININE_ERROR_UNSUPPORTED_EXTN  = -32,
+	ASININE_ERROR_INVALID           = -40,
+	ASININE_ERROR_INVALID_UNTRUSTED = -41,
+	ASININE_ERROR_INVALID_EXPIRED   = -42
 } asinine_err_t;
 
 /**
@@ -145,7 +146,7 @@ ASININE_API asinine_err_t asn1_time(const asn1_token_t *token, asn1_time_t *time
 ASININE_API asinine_err_t asn1_bool(const asn1_token_t *token, bool *value);
 
 ASININE_API const uint8_t* asn1_raw(const asn1_token_t *token);
-ASININE_API size_t asi9_type_to_string(char *dst, size_t num,
+ASININE_API size_t asn1_to_string(char *dst, size_t num,
 	const asn1_type_t* type);
 ASININE_API bool asn1_string_eq(const asn1_token_t *token, const char *str);
 ASININE_API bool asn1_eq(const asn1_token_t *a, const asn1_token_t *b);

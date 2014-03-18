@@ -128,7 +128,7 @@ asinine_err_t
 asn1_string(const asn1_token_t *token, char *buf, const size_t num)
 {
 	if (!validate_string(token)) {
-		return ASININE_ERROR_INVALID;
+		return ASININE_ERROR_MALFORMED;
 	}
 
 	if (num <= token->length) {
@@ -182,7 +182,7 @@ asn1_bitstring(const asn1_token_t *token, uint8_t *buf, const size_t num)
 
 	// 8.6.2.2 and 10.2
 	if (token->length < 1 || !token->is_primitive) {
-		return ASININE_ERROR_INVALID;
+		return ASININE_ERROR_MALFORMED;
 	}
 
 	if (token->length - 1 > num) {
@@ -194,17 +194,17 @@ asn1_bitstring(const asn1_token_t *token, uint8_t *buf, const size_t num)
 
 	// 8.6.2.2
 	if (unused_bits > 7) {
-		return ASININE_ERROR_INVALID;
+		return ASININE_ERROR_MALFORMED;
 	}
 
 	// 8.6.2.3
 	if (token->length == 1) {
-		return (unused_bits == 0) ? ASININE_OK : ASININE_ERROR_INVALID;
+		return (unused_bits == 0) ? ASININE_OK : ASININE_ERROR_MALFORMED;
 	}
 
 	// 11.2.2
 	if (token->data[token->length - 1] == 0) {
-		return ASININE_ERROR_INVALID;
+		return ASININE_ERROR_MALFORMED;
 	}
 
 	// 11.2.1
@@ -212,7 +212,7 @@ asn1_bitstring(const asn1_token_t *token, uint8_t *buf, const size_t num)
 		unused_bits = (1 << unused_bits) - 1;
 
 		if ((token->data[token->length - 1] & unused_bits) != 0) {
-			return ASININE_ERROR_INVALID;
+			return ASININE_ERROR_MALFORMED;
 		}
 	}
 
@@ -298,12 +298,12 @@ asn1_time(const asn1_token_t *token, asn1_time_t *time)
 		part->second = -1;
 
 	if (token->length < MIN_DATA_LEN) {
-		return ASININE_ERROR_INVALID;
+		return ASININE_ERROR_MALFORMED;
 	}
 
 	for (i = 0; i < 5; data += 2, i++) {
 		if (!decode_pair(data, &t.raw[i])) {
-			return ASININE_ERROR_INVALID;
+			return ASININE_ERROR_MALFORMED;
 		}
 	}
 
@@ -311,11 +311,11 @@ asn1_time(const asn1_token_t *token, asn1_time_t *time)
 		// Try to decode seconds
 		if (data + 2 >= (char*)(token->data + token->length)) {
 			// Need at least another char for seconds, plus 'Z' or timezone
-			return ASININE_ERROR_INVALID;
+			return ASININE_ERROR_MALFORMED;
 		}
 
 		if (!decode_pair(data, &part->second)) {
-			return ASININE_ERROR_INVALID;
+			return ASININE_ERROR_MALFORMED;
 		}
 		data += 2;
 	}
@@ -324,49 +324,49 @@ asn1_time(const asn1_token_t *token, asn1_time_t *time)
 		// TODO: Parse timezone offset (which is not standards conformant)
 		// TODO: If time did not include seconds, do we need to parse
 		// non-conformant timezone offset?
-		return ASININE_ERROR_INVALID;
+		return ASININE_ERROR_MALFORMED;
 	}
 
 	// Validation
 	if (token->type.tag == ASN1_TAG_UTCTIME) {
 		// Years are from (19)50 to (20)49, so 99 is 1999 and 00 is 2000.
 		if (part->year < 0 || part->year > 99) {
-			return ASININE_ERROR_INVALID;
+			return ASININE_ERROR_MALFORMED;
 		}
 
 		// Normalize years, since the encoding is not linear:
 		// 00 -> 2000, 49 -> 2049, 50 -> 1950, 99 -> 1999
 		part->year += (part->year > 49) ? 1900 : 2000;
 	} else {
-		return ASININE_ERROR_INVALID;
+		return ASININE_ERROR_MALFORMED;
 	}
 
 	is_leap = part->year % 4 == 0 &&
 		(part->year % 100 != 0 || part->year % 400 == 0);
 
 	if (part->month < 1 || part->month > 12) {
-		return ASININE_ERROR_INVALID;
+		return ASININE_ERROR_MALFORMED;
 	}
 
 	if (part->day < 1) {
-		return ASININE_ERROR_INVALID;
+		return ASININE_ERROR_MALFORMED;
 	} else if (is_leap && part->month == 2) {
 		// Check February in leap years
 		if (part->day > 29) {
-			return ASININE_ERROR_INVALID;
+			return ASININE_ERROR_MALFORMED;
 		}
 	} else if (part->day > days_per_month[part->month - 1]) {
-		return ASININE_ERROR_INVALID;
+		return ASININE_ERROR_MALFORMED;
 	}
 
 	if (part->hour < 0 || part->hour > 23) {
-		return ASININE_ERROR_INVALID;
+		return ASININE_ERROR_MALFORMED;
 	}
 
 	// Seconds are "optional"
 	part->second = (part->second == -1) ? 0 : part->second;
 	if (part->second < 0 || part->second > 59) {
-		return ASININE_ERROR_INVALID;
+		return ASININE_ERROR_MALFORMED;
 	}
 
 	// Convert to UNIX time (approximately)
@@ -405,7 +405,7 @@ asn1_bool(const asn1_token_t *token, bool *value)
 	uint8_t data;
 
 	if (token->length != 1) {
-		return ASININE_ERROR_INVALID;
+		return ASININE_ERROR_MALFORMED;
 	}
 
 	data = *token->data;
@@ -415,7 +415,7 @@ asn1_bool(const asn1_token_t *token, bool *value)
 	} else if (data == 0xFF) {
 		*value = true;
 	} else {
-		return ASININE_ERROR_INVALID;
+		return ASININE_ERROR_MALFORMED;
 	}
 
 	return ASININE_OK;
@@ -427,13 +427,14 @@ asinine_err_to_string(asinine_err_t err)
 #define case_for_tag(x) case x: return #x
 	switch (err) {
 		case_for_tag(ASININE_OK);
-		case_for_tag(ASININE_ERROR_INVALID);
+		case_for_tag(ASININE_ERROR_MALFORMED);
 		case_for_tag(ASININE_ERROR_MEMORY);
 		case_for_tag(ASININE_ERROR_UNSUPPORTED);
 		case_for_tag(ASININE_ERROR_UNSUPPORTED_ALGO);
 		case_for_tag(ASININE_ERROR_UNSUPPORTED_EXTN);
-		case_for_tag(ASININE_ERROR_UNTRUSTED);
-		case_for_tag(ASININE_ERROR_EXPIRED);
+		case_for_tag(ASININE_ERROR_INVALID);
+		case_for_tag(ASININE_ERROR_INVALID_UNTRUSTED);
+		case_for_tag(ASININE_ERROR_INVALID_EXPIRED);
 		default: return "UNKNOWN";
 	}
 #undef case_for_tag
@@ -481,7 +482,7 @@ tag_to_string(asn1_tag_t tag)
 }
 
 size_t
-asn1_type_to_string(char *dst, size_t num, const asn1_type_t* type)
+asn1_to_string(char *dst, size_t num, const asn1_type_t* type)
 {
 	if (type->class == ASN1_CLASS_UNIVERSAL) {
 		return snprintf(dst, num, "%s", tag_to_string(type->tag));

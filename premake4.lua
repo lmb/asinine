@@ -23,8 +23,15 @@ solution "Asinine"
 
 		files { "include/asinine/*.h", "src/*.c" }
 
+	project "dump"
+		kind "ConsoleApp"
+		language "C"
+		links { "asinine" }
+
+		files { "src/utils/dump.c" }
+
 	project "tests"
 		kind "ConsoleApp"
 		language "C"
 
-		files { "include/asinine/*.h", "src/**.c" }
+		files { "include/asinine/*.h", "src/*.c", "src/tests/*.c" }

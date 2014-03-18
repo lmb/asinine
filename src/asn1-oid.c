@@ -39,19 +39,15 @@ asn1_oid(const asn1_token_t *token, asn1_oid_t *oid)
 	// Zero every OID so that asn1_oid_cmp works
 	memset(oid, 0, sizeof(*oid));
 
-	if (!asn1_is_oid(token)) {
-		return ASININE_ERROR_INVALID;
-	}
-
 	if (token->data == NULL || token->length == 0) {
-		return ASININE_ERROR_INVALID;
+		return ASININE_ERROR_MALFORMED;
 	}
 
 	// 8.19.2 "[...] last in the series: bit 8 of the last octet is zero; [...]"
 	// Since we need to have the end of a series at the end of this token, we
 	// check here.
 	if ((*(token->data + token->length - 1) & OID_CONTINUATION_MASK) != 0) {
-		return ASININE_ERROR_INVALID;
+		return ASININE_ERROR_MALFORMED;
 	}
 
 	arc = 0;
@@ -62,7 +58,7 @@ asn1_oid(const asn1_token_t *token, asn1_oid_t *oid)
 		if (arc == 0 && *data == 0x80) {
 			// 8.19.2 "the leading octet of the subidentifier shall not have the
 			// value 0x80"
-			return ASININE_ERROR_INVALID;
+			return ASININE_ERROR_MALFORMED;
 		} 
 
 		arc = (arc << OID_VALUE_BITS_PER_BYTE) | (*data & OID_VALUE_MASK);

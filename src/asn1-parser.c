@@ -120,7 +120,7 @@ asn1_next(asn1_parser_t *parser)
 #define INC_CURRENT do { \
 		parser->current++; \
 		if (parser->current >= parent_end) { \
-			return set_error(parser, ASININE_ERROR_INVALID); \
+			return set_error(parser, ASININE_ERROR_MALFORMED); \
 		} \
 	} while (0)
 
@@ -129,7 +129,7 @@ asn1_next(asn1_parser_t *parser)
 	asn1_token_t* token = &parser->token;
 
 	if (parser->current >= parent_end) {
-		return set_error(parser, ASININE_ERROR_INVALID);
+		return set_error(parser, ASININE_ERROR_MALFORMED);
 	}
 
 	if (parser->constraint > 0 &&
@@ -172,10 +172,10 @@ asn1_next(asn1_parser_t *parser)
 		num_bytes = *parser->current & CONTENT_LENGTH_MASK;
 
 		if (num_bytes == CONTENT_LENGTH_LONG_RESERVED) {
-			return set_error(parser, ASININE_ERROR_INVALID);
+			return set_error(parser, ASININE_ERROR_MALFORMED);
 		} else if (num_bytes == 0) {
 			// Indefinite form is not supported (X.690 11/2008 8.1.3.6)
-			return set_error(parser, ASININE_ERROR_INVALID);
+			return set_error(parser, ASININE_ERROR_MALFORMED);
 		} else if (num_bytes > sizeof token->length) {
 			// TODO: Write a test for this
 			return set_error(parser, ASININE_ERROR_UNSUPPORTED);
@@ -199,9 +199,9 @@ asn1_next(asn1_parser_t *parser)
 	end = token->data + token->length;
 
 	if (parser->depth == 0 && end != parent_end) {
-		return set_error(parser, ASININE_ERROR_INVALID);
+		return set_error(parser, ASININE_ERROR_MALFORMED);
 	} else if (end > parent_end) {
-		return set_error(parser, ASININE_ERROR_INVALID);
+		return set_error(parser, ASININE_ERROR_MALFORMED);
 	}
 
 	if (token->is_primitive) {
@@ -210,7 +210,7 @@ asn1_next(asn1_parser_t *parser)
 		parser->depth++;
 
 		if (parser->depth >= NUM(parser->parents)) {
-			return set_error(parser, ASININE_ERROR_INVALID);
+			return set_error(parser, ASININE_ERROR_MALFORMED);
 		}
 
 		parser->parents[parser->depth] = end;
