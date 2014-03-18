@@ -227,7 +227,7 @@ asn1_bitstring(const asn1_token_t *token, uint8_t *buf, const size_t num)
 
 // 8.3
 asinine_err_t
-asn1_int_unsafe(const asn1_token_t *token, int *value)
+asn1_int(const asn1_token_t *token, int *value)
 {
 	bool negative;
 	const uint8_t *data;
@@ -254,17 +254,6 @@ asn1_int_unsafe(const asn1_token_t *token, int *value)
 	}
 
 	return ASININE_OK;
-}
-
-asinine_err_t
-asn1_int(const asn1_token_t *token, int *value)
-{
-	// TODO: 8.3.2
-	if (!asn1_is_int(token)) {
-		return ASININE_ERROR_INVALID;
-	}
-
-	return asn1_int_unsafe(token, value);
 }
 
 static bool
@@ -411,7 +400,7 @@ asn1_time(const asn1_token_t *token, asn1_time_t *time)
 }
 
 asinine_err_t
-asn1_bool_unsafe(const asn1_token_t *token, bool *value)
+asn1_bool(const asn1_token_t *token, bool *value)
 {
 	uint8_t data;
 
@@ -430,16 +419,6 @@ asn1_bool_unsafe(const asn1_token_t *token, bool *value)
 	}
 
 	return ASININE_OK;
-}
-
-asinine_err_t
-asn1_bool(const asn1_token_t *token, bool *value)
-{
-	if (!asn1_is_bool(token)) {
-		return ASININE_ERROR_INVALID;
-	}
-
-	return asn1_bool_unsafe(token, value);
 }
 
 const char*

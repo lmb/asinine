@@ -356,7 +356,7 @@ parse_extensions(asn1_parser_t *parser, x509_cert_t *cert)
 		NEXT_TOKEN(parser);
 
 		if (asn1_is_bool(token)) {
-			if (asn1_bool_unsafe(token, &critical) < ASININE_OK) {
+			if (asn1_bool(token, &critical) < ASININE_OK) {
 				return ASININE_ERROR_INVALID;
 			}
 
@@ -572,7 +572,7 @@ parse_extn_basic_constraints(x509_cert_t *cert,
 	NEXT_CHILD(&parser, &parent);
 
 	if (asn1_is_bool(&parser.token)) {
-		asn1_bool_unsafe(&parser.token, &cert->is_ca);
+		asn1_bool(&parser.token, &cert->is_ca);
 		NEXT_CHILD(&parser, &parent);
 	}
 

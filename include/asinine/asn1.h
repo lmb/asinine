@@ -117,7 +117,6 @@ ASININE_API asinine_err_t asn1_descend(asn1_parser_t *parser);
 /* Types */
 ASININE_API asinine_err_t asn1_string(const asn1_token_t *token, char *buf,
 	const size_t num);
-ASININE_API bool asn1_string_eq(const asn1_token_t *token, const char *str);
 
 /**
  * Deserialize an ASN.1 Bitstring
@@ -138,15 +137,14 @@ ASININE_API asinine_err_t asn1_bitstring(const asn1_token_t *token, uint8_t *buf
 	const size_t num);
 
 ASININE_API asinine_err_t asn1_int(const asn1_token_t *token, int *value);
-ASININE_API asinine_err_t asn1_int_unsafe(const asn1_token_t *token, int *value);
 
 ASININE_API asinine_err_t asn1_time(const asn1_token_t *token, asn1_time_t *time);
 
 ASININE_API asinine_err_t asn1_bool(const asn1_token_t *token, bool *value);
-ASININE_API asinine_err_t asn1_bool_unsafe(const asn1_token_t *token, bool *value);
 
 ASININE_API const uint8_t* asn1_raw(const asn1_token_t *token);
 ASININE_API const char* asn1_type_to_string(const asn1_type_t* type);
+ASININE_API bool asn1_string_eq(const asn1_token_t *token, const char *str);
 ASININE_API bool asn1_eq(const asn1_token_t *a, const asn1_token_t *b);
 
 ASININE_API bool asn1_is(const asn1_token_t *token, uint8_t class, uint32_t tag);
