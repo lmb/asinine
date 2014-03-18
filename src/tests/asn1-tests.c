@@ -98,7 +98,8 @@ test_asn1_oid_to_string(void)
 	check(asn1_oid_to_string(oid_str, sizeof oid_str, &oid));
 	check(strncmp("1.2.3", oid_str, 5) == 0);
 
-	check(!asn1_oid_to_string(oid_str, sizeof oid_str, &invalid_oid));
+	check(asn1_oid_to_string(oid_str, sizeof oid_str, &invalid_oid));
+	check(strncmp("1", oid_str, 1) == 0);
 
 	return 0;
 }

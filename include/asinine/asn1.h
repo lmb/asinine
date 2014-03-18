@@ -143,7 +143,8 @@ ASININE_API asinine_err_t asn1_time(const asn1_token_t *token, asn1_time_t *time
 ASININE_API asinine_err_t asn1_bool(const asn1_token_t *token, bool *value);
 
 ASININE_API const uint8_t* asn1_raw(const asn1_token_t *token);
-ASININE_API const char* asn1_type_to_string(const asn1_type_t* type);
+ASININE_API size_t asi9_type_to_string(char *dst, size_t num,
+	const asn1_type_t* type);
 ASININE_API bool asn1_string_eq(const asn1_token_t *token, const char *str);
 ASININE_API bool asn1_eq(const asn1_token_t *a, const asn1_token_t *b);
 
@@ -163,7 +164,7 @@ ASININE_API bool asn1_is_null(const asn1_token_t *token);
 
 /* OID */
 ASININE_API asinine_err_t asn1_oid(const asn1_token_t *token, asn1_oid_t *oid);
-ASININE_API bool asn1_oid_to_string(char *buffer, size_t num,
+ASININE_API size_t asn1_oid_to_string(char *dst, size_t num,
 	const asn1_oid_t *oid);
 ASININE_API bool asn1_oid_eq(const asn1_oid_t *oid, size_t num, ...);
 ASININE_API int asn1_oid_cmp(const asn1_oid_t *a, const asn1_oid_t *b);

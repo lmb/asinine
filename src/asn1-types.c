@@ -4,6 +4,7 @@
 
 #include <string.h>
 #include <assert.h>
+#include <stdio.h>
 
 #include "asinine/asn1.h"
 
@@ -434,40 +435,61 @@ asinine_err_to_string(asinine_err_t err)
 		case_for_tag(ASININE_ERROR_UNSUPPORTED_EXTN);
 		case_for_tag(ASININE_ERROR_UNTRUSTED);
 		case_for_tag(ASININE_ERROR_EXPIRED);
+		default: return "UNKNOWN";
 	}
 #undef case_for_tag
-
-	return "INVALID";
 }
 
-const char*
-asn1_type_to_string(const asn1_type_t* type)
+static const char*
+class_to_string(asn1_class_t class)
 {
-	if (type->class != ASN1_CLASS_UNIVERSAL) {
-		return "INVALID CLASS";
+#undef case_for
+#define case_for(x) case x: return #x
+	switch ((asn1_class_t)class) {
+		case_for(ASN1_CLASS_UNIVERSAL);
+		case_for(ASN1_CLASS_APPLICATION);
+		case_for(ASN1_CLASS_CONTEXT);
+		case_for(ASN1_CLASS_PRIVATE);
+		default: return "UNKNOWN";
 	}
+#undef case_for
+}
 
-#define case_for_tag(x) case x: return #x
-	switch((asn1_tag_t)type->tag) {
-		case_for_tag(ASN1_TAG_BOOL);
-		case_for_tag(ASN1_TAG_INT);
-		case_for_tag(ASN1_TAG_BITSTRING);
-		case_for_tag(ASN1_TAG_OCTETSTRING);
-		case_for_tag(ASN1_TAG_NULL);
-		case_for_tag(ASN1_TAG_OID);
-		case_for_tag(ASN1_TAG_UTF8STRING);
-		case_for_tag(ASN1_TAG_SEQUENCE);
-		case_for_tag(ASN1_TAG_SET);
-		case_for_tag(ASN1_TAG_PRINTABLESTRING);
-		case_for_tag(ASN1_TAG_T61STRING);
-		case_for_tag(ASN1_TAG_IA5STRING);
-		case_for_tag(ASN1_TAG_UTCTIME);
-		case_for_tag(ASN1_TAG_GENERALIZEDTIME);
-		case_for_tag(ASN1_TAG_VISIBLESTRING);
+static const char*
+tag_to_string(asn1_tag_t tag)
+{
+#undef case_for
+#define case_for(x) case x: return #x
+	switch((asn1_tag_t)tag) {
+		case_for(ASN1_TAG_BOOL);
+		case_for(ASN1_TAG_INT);
+		case_for(ASN1_TAG_BITSTRING);
+		case_for(ASN1_TAG_OCTETSTRING);
+		case_for(ASN1_TAG_NULL);
+		case_for(ASN1_TAG_OID);
+		case_for(ASN1_TAG_UTF8STRING);
+		case_for(ASN1_TAG_SEQUENCE);
+		case_for(ASN1_TAG_SET);
+		case_for(ASN1_TAG_PRINTABLESTRING);
+		case_for(ASN1_TAG_T61STRING);
+		case_for(ASN1_TAG_IA5STRING);
+		case_for(ASN1_TAG_UTCTIME);
+		case_for(ASN1_TAG_GENERALIZEDTIME);
+		case_for(ASN1_TAG_VISIBLESTRING);
+		default: return "UNKNOWN";
 	}
-#undef case_for_tag
+#undef case_for
+}
 
-	return "UNKNOWN";
+size_t
+asn1_type_to_string(char *dst, size_t num, const asn1_type_t* type)
+{
+	if (type->class == ASN1_CLASS_UNIVERSAL) {
+		return snprintf(dst, num, "%s", tag_to_string(type->tag));
+	} else {
+		const char* class = class_to_string(type->class);
+		return snprintf(dst, num, "%s:%d", class, type->tag);
+	}
 }
 
 const uint8_t*

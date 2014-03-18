@@ -99,34 +99,32 @@ asn1_oid(const asn1_token_t *token, asn1_oid_t *oid)
 	return ASININE_OK;
 }
 
-bool
+size_t
 asn1_oid_to_string(char *buffer, size_t num, const asn1_oid_t *oid)
 {
-	size_t i, total_written = 0;
+	size_t i, written, total;
 
-	if (oid->num < OID_MINIMUM_ARCS) {
-		return false;
-	}
-
-	for (i = 0; i < oid->num; i++) {
-		size_t written;
-
-		if (num == 0) {
-			return false;
-		}
-
+	for (i = 0, total = 0; i < oid->num; ++i) {
 		written = snprintf(buffer, num, "%d.", oid->arcs[i]);
 
-		buffer += written;
-		num -= written;
-		total_written += written;
+		if (written == 0) {
+			break;
+		}
+
+		if (buffer != NULL) {
+			buffer += written;
+			num -= written;
+		}
+
+		total += written;
 	}
 
-	if (total_written && *(buffer-1) == '.') {
+	if (total > 0 && *(buffer-1) == '.') {
+		total -= 1;
 		*(buffer-1) = '\0';
 	}
 
-	return true;
+	return total;
 }
 
 bool
