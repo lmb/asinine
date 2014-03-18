@@ -138,10 +138,9 @@ asn1_string(const asn1_token_t *token, char *buf, const size_t num)
 	memcpy(buf, token->data, token->length);
 	buf[token->length] = '\0';
 
-	// PRINTABLESTRING can not contain NULL characters per definition
-	// TODO: Update me
-	if (asn1_is(token, ASN1_CLASS_UNIVERSAL, ASN1_TAG_IA5STRING) &&
-		strlen(buf) != token->length) {
+	// We disallow NULLs in all strings, since the potential for abuse is too
+	// high. This is a deviation from spec, obviously.
+	if (strlen(buf) != token->length) {
 		return ASININE_ERROR_INVALID;
 	}
 
@@ -152,14 +151,14 @@ bool
 asn1_string_eq(const asn1_token_t *token, const char *str)
 {
 	if (!validate_string(token)) {
-		return 0;
+		return false;
 	}
 
 	if (token->length != strlen(str)) {
-		return 0;
+		return false;
 	}
 
-	return memcmp(token->data, str, token->length) == 0;
+	return (memcmp(token->data, str, token->length) == 0);
 }
 
 // 8.6
