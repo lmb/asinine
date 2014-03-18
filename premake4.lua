@@ -6,13 +6,12 @@ solution "Asinine"
 	configurations { "Debug", "Release" }
 	includedirs { "include" }
 
-	flags { "FatalWarnings" }
-	buildoptions { "-ansi", "-std=c99", "-pedantic", "-ffunction-sections",
-		"-Wextra" }
+	buildoptions { "-std=c99", "-pedantic", "-ffunction-sections",
+		"-Wextra", "-Wall", "-fvisibility=hidden" }
 
 	configuration "Debug"
 		defines { "DEBUG" }
-		flags { "Symbols" }
+		flags { "Symbols", "FatalWarnings" }
 
 	configuration "Release"
 		defines { "NDEBUG" }

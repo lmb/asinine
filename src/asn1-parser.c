@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include <string.h>
+#include <assert.h>
 
 #include "asinine/asn1.h"
 
@@ -40,27 +41,21 @@ update_depth(asn1_parser_t *parser)
 	}
 }
 
-asinine_err_t
-asn1_parser_init(asn1_parser_t *parser, asn1_token_t *token,
-	const uint8_t *data, size_t length)
+void
+asn1_init(asn1_parser_t *parser, const uint8_t *data, size_t length)
 {
-	if (parser == NULL || token == NULL || data == NULL || length == 0)
-	{
-		return ASININE_ERROR_INVALID;
-	}
+	assert(parser != NULL);
+	assert(data != NULL);
+	assert(length != 0);
 
 	memset(parser, 0, sizeof *parser);
 
-	parser->token = token;
 	parser->current = data;
-
 	parser->parents[0] = data + length;
-
-	return ASININE_OK;
 }
 
 asinine_err_t
-asn1_parser_ascend(asn1_parser_t *parser, size_t levels)
+asn1_ascend(asn1_parser_t *parser, size_t levels)
 {
 	if (levels >= parser->constraint) {
 		return ASININE_ERROR_INVALID;
@@ -71,7 +66,7 @@ asn1_parser_ascend(asn1_parser_t *parser, size_t levels)
 }
 
 asinine_err_t
-asn1_parser_descend(asn1_parser_t *parser)
+asn1_descend(asn1_parser_t *parser)
 {
 	if (parser->constraint >= NUM(parser->parents)) {
 		return ASININE_ERROR_INVALID;
@@ -82,9 +77,9 @@ asn1_parser_descend(asn1_parser_t *parser)
 }
 
 void
-asn1_parser_skip_children(asn1_parser_t *parser)
+asn1_skip(asn1_parser_t *parser)
 {
-	const asn1_token_t * const token = parser->token;
+	const asn1_token_t* const token = &parser->token;
 
 	if (!token->is_primitive) {
 		parser->current = token->data + token->length;
@@ -94,32 +89,32 @@ asn1_parser_skip_children(asn1_parser_t *parser)
 }
 
 bool
-asn1_parser_eot(const asn1_parser_t *parser, const asn1_token_t *token)
+asn1_eot(const asn1_parser_t *parser, const asn1_token_t *token)
 {
 	return parser->current >= token->data + token->length;
 }
 
 bool
-asn1_parser_eof(const asn1_parser_t *parser)
+asn1_eof(const asn1_parser_t *parser)
 {
 	return parser->current == parser->parents[parser->depth];
 }
 
 asinine_err_t
-asn1_parser_next(asn1_parser_t *parser)
+asn1_next(asn1_parser_t *parser)
 {
 #define INC_CURRENT do { \
 		parser->current++; \
-		if (parser->current >= parent) { \
+		if (parser->current >= parent_end) { \
 			return ASININE_ERROR_INVALID; \
 		} \
 	} while (0)
 
-	const uint8_t * const parent = parser->parents[parser->depth];
-	const uint8_t *end;
-	asn1_token_t *token = parser->token;
+	const uint8_t* const parent_end = parser->parents[parser->depth];
+	const uint8_t* end;
+	asn1_token_t* token = &parser->token;
 
-	if (parser->current >= parent) {
+	if (parser->current >= parent_end) {
 		return ASININE_ERROR_INVALID;
 	}
 
@@ -130,27 +125,27 @@ asn1_parser_next(asn1_parser_t *parser)
 
 	memset(token, 0, sizeof *token);
 
-	token->class = IDENTIFIER_CLASS(*parser->current);
+	token->type.class = IDENTIFIER_CLASS(*parser->current);
 	token->is_primitive = IDENTIFIER_IS_PRIMITIVE(*parser->current);
 
 	// Type (8.1.2)
-	token->tag = *parser->current & IDENTIFIER_TAG_MASK;
+	token->type.tag = *parser->current & IDENTIFIER_TAG_MASK;
 	INC_CURRENT;
 
-	if (token->tag == IDENTIFIER_MULTIPART_TAG) {
+	if (token->type.tag == IDENTIFIER_MULTIPART_TAG) {
 		size_t bits;
 
 		// 8.1.2.4.2
 		bits = 0;
-		token->tag = 0;
+		token->type.tag = 0;
 
 		do {
-			token->tag <<= 7;
-			token->tag |= *parser->current & IDENTIFIER_MULTIPART_TAG_MASK;
+			token->type.tag <<= 7;
+			token->type.tag |= *parser->current & IDENTIFIER_MULTIPART_TAG_MASK;
 			INC_CURRENT;
 
 			bits += 7;
-			if (bits > sizeof token->tag * 8) {
+			if (bits > sizeof token->type.tag * 8) {
 				return ASININE_ERROR_MEMORY;
 			}
 		} while (*parser->current & 0x80);
@@ -189,9 +184,9 @@ asn1_parser_next(asn1_parser_t *parser)
 	token->data = parser->current;
 	end = token->data + token->length;
 
-	if (parser->depth == 0 && end != parent) {
+	if (parser->depth == 0 && end != parent_end) {
 		return ASININE_ERROR_INVALID;
-	} else if (end > parent) {
+	} else if (end > parent_end) {
 		return ASININE_ERROR_INVALID;
 	}
 

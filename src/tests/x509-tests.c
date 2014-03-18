@@ -23,22 +23,13 @@ test_x509_certs(void)
 		const uint8_t * const data = x509_certs[i].data;
 		const size_t length = x509_certs[i].length;
 
-		switch (x509_parse(&cert, data, length)) {
-			case ASININE_OK: {
-				continue;
-			}
+		asinine_err_t result = x509_parse(&cert, data, length);
 
-			case ASININE_ERROR_UNSUPPORTED: {
-				printf("> %s (#%lu) uses unsupported features\n", host, i);
-				errors = true;
-				break;
-			}
+		if (result != ASININE_OK) {
+			const char* error = asinine_err_to_string(result);
 
-			default: {
-				printf("> %s (#%lu) failed to parse\n", host, i);
-				errors = true;
-				break;
-			}
+			printf("> %s (#%lu): %s\n", host, i, error);
+			errors = true;
 		}
 	}
 

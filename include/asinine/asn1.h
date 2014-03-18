@@ -24,12 +24,14 @@ extern "C" {
 #define ASN1_MAXIMUM_DEPTH 10
 
 typedef enum asinine_err {
-	ASININE_OK                =  0,
-	ASININE_ERROR_INVALID     = -1,
-	ASININE_ERROR_MEMORY      = -2,
-	ASININE_ERROR_UNSUPPORTED = -3,
-	ASININE_ERROR_UNTRUSTED   = -4,
-	ASININE_ERROR_EXPIRED     = -5
+	ASININE_OK                     =   0,
+	ASININE_ERROR_INVALID          = -10,
+	ASININE_ERROR_MEMORY           = -20,
+	ASININE_ERROR_UNSUPPORTED      = -30,
+	ASININE_ERROR_UNSUPPORTED_ALGO = -31,
+	ASININE_ERROR_UNSUPPORTED_EXTN = -32,
+	ASININE_ERROR_UNTRUSTED        = -40,
+	ASININE_ERROR_EXPIRED          = -50
 } asinine_err_t;
 
 /**
@@ -42,61 +44,28 @@ typedef enum asn1_class {
 	ASN1_CLASS_PRIVATE     = 3
 } asn1_class_t;
 
-typedef enum asn1_universal_tag {
-	// ASN1_TYPE_INVALID         =  0,
-	ASN1_TYPE_BOOL            =  1,
-	ASN1_TYPE_INT             =  2,
-	ASN1_TYPE_BITSTRING       =  3,
-	ASN1_TYPE_OCTETSTRING     =  4,
-	ASN1_TYPE_NULL            =  5,
-	ASN1_TYPE_OID             =  6,
-	ASN1_TYPE_UTF8STRING      = 12,
-	ASN1_TYPE_SEQUENCE        = 16,
-	ASN1_TYPE_SET             = 17,
-	ASN1_TYPE_PRINTABLESTRING = 19,
-	ASN1_TYPE_T61STRING       = 20,
-	ASN1_TYPE_IA5STRING       = 22,
-	ASN1_TYPE_UTCTIME         = 23,
-	ASN1_TYPE_GENERALIZEDTIME = 24,
-	ASN1_TYPE_VISIBLESTRING   = 26
-} asn1_universal_tag_t;
+typedef enum asn1_tag {
+	// TODO: What about type 0?
+	ASN1_TAG_BOOL            =  1,
+	ASN1_TAG_INT             =  2,
+	ASN1_TAG_BITSTRING       =  3,
+	ASN1_TAG_OCTETSTRING     =  4,
+	ASN1_TAG_NULL            =  5,
+	ASN1_TAG_OID             =  6,
+	ASN1_TAG_UTF8STRING      = 12,
+	ASN1_TAG_SEQUENCE        = 16,
+	ASN1_TAG_SET             = 17,
+	ASN1_TAG_PRINTABLESTRING = 19,
+	ASN1_TAG_T61STRING       = 20,
+	ASN1_TAG_IA5STRING       = 22,
+	ASN1_TAG_UTCTIME         = 23,
+	ASN1_TAG_GENERALIZEDTIME = 24,
+	ASN1_TAG_VISIBLESTRING   = 26
+} asn1_tag_t;
 
-typedef uint32_t asn1_tag_t;
+// TODO: Remove these two in favour of explicit type sizes? These are going to
+// be part of the ABI anyways
 typedef int64_t asn1_time_t;
-
-typedef struct asn1_token {
-	const uint8_t *data;
-	size_t length;
-	bool is_primitive;
-	asn1_tag_t tag;
-	uint8_t class;
-} asn1_token_t;
-
-typedef struct asn1_parser {
-	const uint8_t *current;
-	asn1_token_t *token;
-	const uint8_t *parents[ASN1_MAXIMUM_DEPTH];
-	size_t depth;
-	size_t constraint;
-} asn1_parser_t;
-
-asinine_err_t asn1_parser_init(asn1_parser_t *parser, asn1_token_t *token,
-	const uint8_t *data, size_t length);
-
-asinine_err_t asn1_parser_next(asn1_parser_t *parser);
-/**
- * Skip over all children of the current token
- * @param  parser ASN.1 parser
- * @note   This function does not validate the skipped tokens. As such, it
- *         is possible to skip invalid tokens, which would have led to an error
- *         on a full parse.
- */
-void asn1_parser_skip_children(asn1_parser_t *parser);
-bool asn1_parser_eot(const asn1_parser_t *parser, const asn1_token_t *token);
-bool asn1_parser_eof(const asn1_parser_t *parser);
-asinine_err_t asn1_parser_ascend(asn1_parser_t *parser, size_t levels);
-asinine_err_t asn1_parser_descend(asn1_parser_t *parser);
-
 typedef uint32_t asn1_oid_arc_t;
 
 typedef struct asn1_oid {
@@ -104,10 +73,51 @@ typedef struct asn1_oid {
 	size_t num;
 } asn1_oid_t;
 
+typedef struct asn1_type {
+	uint8_t class;
+	uint32_t tag;
+} asn1_type_t;
+
+typedef struct asn1_token {
+	const uint8_t *data;
+	size_t length;
+	asn1_type_t type;
+	bool is_primitive;
+} asn1_token_t;
+
+typedef struct asn1_parser {
+	const uint8_t *current;
+	const uint8_t *parents[ASN1_MAXIMUM_DEPTH];
+	size_t depth;
+	size_t constraint;
+	asn1_token_t token;
+} asn1_parser_t;
+
+ASININE_API const char* asinine_err_to_string(asinine_err_t err);
+
+/* Parser */
+ASININE_API void asn1_init(asn1_parser_t *parser, const uint8_t *data,
+	size_t length);
+
+ASININE_API asinine_err_t asn1_next(asn1_parser_t *parser);
+
+/**
+ * Skip to the end of the current token
+ * @param  parser ASN.1 parser
+ * @note   This function does not validate any skipped tokens. As such, it
+ *         is possible to skip invalid tokens, which would have led to an error
+ *         on a full parse.
+ */
+ASININE_API void asn1_skip(asn1_parser_t *parser);
+ASININE_API bool asn1_eot(const asn1_parser_t *parser, const asn1_token_t *token);
+ASININE_API bool asn1_eof(const asn1_parser_t *parser);
+ASININE_API asinine_err_t asn1_ascend(asn1_parser_t *parser, size_t levels);
+ASININE_API asinine_err_t asn1_descend(asn1_parser_t *parser);
+
 /* Types */
-asinine_err_t asn1_string(const asn1_token_t *token, char *buf,
+ASININE_API asinine_err_t asn1_string(const asn1_token_t *token, char *buf,
 	const size_t num);
-int asn1_string_eq(const asn1_token_t *token, const char *str);
+ASININE_API bool asn1_string_eq(const asn1_token_t *token, const char *str);
 
 /**
  * Deserialize an ASN.1 Bitstring
@@ -124,42 +134,41 @@ int asn1_string_eq(const asn1_token_t *token, const char *str);
  * @param  num   Size of target buffer
  * @return       ASININE_OK on success, < ASININE_OK on error
  */
-asinine_err_t asn1_bitstring(const asn1_token_t *token, uint8_t *buf,
+ASININE_API asinine_err_t asn1_bitstring(const asn1_token_t *token, uint8_t *buf,
 	const size_t num);
 
-asinine_err_t asn1_int(const asn1_token_t *token, int *value);
-asinine_err_t asn1_int_unsafe(const asn1_token_t *token, int *value);
+ASININE_API asinine_err_t asn1_int(const asn1_token_t *token, int *value);
+ASININE_API asinine_err_t asn1_int_unsafe(const asn1_token_t *token, int *value);
 
-asinine_err_t asn1_time(const asn1_token_t *token, asn1_time_t *time);
+ASININE_API asinine_err_t asn1_time(const asn1_token_t *token, asn1_time_t *time);
 
-asinine_err_t asn1_bool(const asn1_token_t *token, bool *value);
-asinine_err_t asn1_bool_unsafe(const asn1_token_t *token, bool *value);
+ASININE_API asinine_err_t asn1_bool(const asn1_token_t *token, bool *value);
+ASININE_API asinine_err_t asn1_bool_unsafe(const asn1_token_t *token, bool *value);
 
+ASININE_API const uint8_t* asn1_raw(const asn1_token_t *token);
+ASININE_API const char* asn1_type_to_string(const asn1_type_t* type);
+ASININE_API bool asn1_eq(const asn1_token_t *a, const asn1_token_t *b);
 
-const uint8_t* asn1_raw(const asn1_token_t *token);
-const char* asn1_type_to_string(asn1_class_t class, asn1_tag_t tag);
-bool asn1_eq(const asn1_token_t *a, const asn1_token_t *b);
-
-int asn1_is(const asn1_token_t *token, asn1_class_t class, asn1_tag_t tag);
-int asn1_is_string(const asn1_token_t *token);
-int asn1_is_time(const asn1_token_t *token);
-#define asn1_is_sequence(token) \
-	asn1_is(token, ASN1_CLASS_UNIVERSAL, ASN1_TYPE_SEQUENCE)
-#define asn1_is_oid(token) \
-	asn1_is(token, ASN1_CLASS_UNIVERSAL, ASN1_TYPE_OID)
-#define asn1_is_int(token) \
-	asn1_is(token, ASN1_CLASS_UNIVERSAL, ASN1_TYPE_INT)
-#define asn1_is_set(token) \
-	asn1_is(token, ASN1_CLASS_UNIVERSAL, ASN1_TYPE_SET)
-#define asn1_is_bool(token) \
-	asn1_is(token, ASN1_CLASS_UNIVERSAL, ASN1_TYPE_BOOL)
+ASININE_API bool asn1_is(const asn1_token_t *token, uint8_t class, uint32_t tag);
+ASININE_API bool asn1_is_string(const asn1_token_t *token);
+ASININE_API bool asn1_is_time(const asn1_token_t *token);
+ASININE_API bool asn1_is_string(const asn1_token_t *token);
+ASININE_API bool asn1_is_time(const asn1_token_t *token);
+ASININE_API bool asn1_is_sequence(const asn1_token_t *token);
+ASININE_API bool asn1_is_oid(const asn1_token_t *token);
+ASININE_API bool asn1_is_int(const asn1_token_t *token);
+ASININE_API bool asn1_is_bool(const asn1_token_t *token);
+ASININE_API bool asn1_is_set(const asn1_token_t *token);
+ASININE_API bool asn1_is_bitstring(const asn1_token_t *token);
+ASININE_API bool asn1_is_octetstring(const asn1_token_t *token);
+ASININE_API bool asn1_is_null(const asn1_token_t *token);
 
 /* OID */
-asinine_err_t asn1_oid(const asn1_token_t *token, asn1_oid_t *oid);
-bool asn1_oid_to_string(const asn1_oid_t *oid, char *buffer,
-	size_t num);
-bool asn1_oid_eq(const asn1_oid_t *oid, size_t num, ...);
-int asn1_oid_cmp(const asn1_oid_t *a, const asn1_oid_t *b);
+ASININE_API asinine_err_t asn1_oid(const asn1_token_t *token, asn1_oid_t *oid);
+ASININE_API bool asn1_oid_to_string(char *buffer, size_t num,
+	const asn1_oid_t *oid);
+ASININE_API bool asn1_oid_eq(const asn1_oid_t *oid, size_t num, ...);
+ASININE_API int asn1_oid_cmp(const asn1_oid_t *a, const asn1_oid_t *b);
 
 #ifdef __cplusplus
 }

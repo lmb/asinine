@@ -39,7 +39,7 @@ asn1_oid(const asn1_token_t *token, asn1_oid_t *oid)
 	// Zero every OID so that asn1_oid_cmp works
 	memset(oid, 0, sizeof(*oid));
 
-	if (!asn1_is(token, ASN1_CLASS_UNIVERSAL, ASN1_TYPE_OID)) {
+	if (!asn1_is_oid(token)) {
 		return ASININE_ERROR_INVALID;
 	}
 
@@ -100,7 +100,7 @@ asn1_oid(const asn1_token_t *token, asn1_oid_t *oid)
 }
 
 bool
-asn1_oid_to_string(const asn1_oid_t *oid, char *buffer, size_t num)
+asn1_oid_to_string(char *buffer, size_t num, const asn1_oid_t *oid)
 {
 	size_t i, total_written = 0;
 

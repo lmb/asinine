@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include <string.h>
+#include <assert.h>
 
 #include "asinine/asn1.h"
 
@@ -18,102 +19,104 @@
 static bool
 validate_string(const asn1_token_t *token)
 {
-	const uint8_t *data;
+	const uint8_t* data;
+	const uint8_t* const data_end = token->data + token->length;
 
-	if (token == NULL || token->class != ASN1_CLASS_UNIVERSAL) {
+	if (token == NULL || token->type.class != ASN1_CLASS_UNIVERSAL) {
 		return false;
 	}
 
-	switch (token->tag) {
-	case ASN1_TYPE_PRINTABLESTRING:
-		for (data = token->data; data < token->data + token->length; data++) {
-			// Space
-			if (*data == 0x20) {
-				continue;
-			}
-
-			// ' and z
-			if (*data < 0x27 || *data > 0x7a) {
-				return false;
-			}
-
-			// Illegal characters: *, ;, <, >, @
-			if (*data == 0x2a || *data == 0x3b || *data == 0x3c || *data == 0x3e
-				|| *data == 0x40) {
-				return false;
-			}
-		}
-		break;
-
-	case ASN1_TYPE_IA5STRING:
-	case ASN1_TYPE_VISIBLESTRING:
-	case ASN1_TYPE_T61STRING:
-		for (data = token->data; data < token->data + token->length; data++) {
-			/* Strictly speaking, control codes are allowed for IA5STRING, but
-			 * since we don't have a way of dealing with code-page switching we
-			 * restrict the type. This is non-conformant to the spec.
-			 * Same goes for T61String, which can switch code pages mid-stream.
-			 * We assume that the initial code-page is #6 (ASCII), and flag
-			 * switching as an error. */
-			if (*data < 0x20 || *data > 0x7f) {
-				return false;
-			}
-		}
-		break;
-
-	case ASN1_TYPE_UTF8STRING: {
-		enum {
-			LEADING,
-			CONTINUATION
-		} state;
-		int bytes;
-
-		state = LEADING;
-		bytes = 0;
-
-		for (data = token->data; data < token->data + token->length; data++) {
-			uint8_t byte = *data;
-
-			switch (state) {
-				case LEADING: {
-					if (byte < 0x80) {
-						continue;
-					}
-
-					if (0xC2 <= byte && byte < 0xD0) {
-						bytes = 1;
-					} else if (0xD0 <= byte && byte < 0xF5) {
-						bytes = (byte >> 4) - 0xC;
-					} else {
-						// 0x80 - 0xBF: Continuation bytes
-						// 0xC0 - 0xC1: Invalid code points
-						return false;
-					}
-
-					state = CONTINUATION;
-					break;
+	switch (token->type.tag) {
+		case ASN1_TAG_PRINTABLESTRING:
+			for (data = token->data; data < data_end; data++) {
+				// Space
+				if (*data == 0x20) {
+					continue;
 				}
 
-				case CONTINUATION: {
-					if (0x80 <= byte && byte < 0xC0) {
-						bytes -= 1;
+				// ' and z
+				if (*data < 0x27 || *data > 0x7a) {
+					return false;
+				}
 
-						if (bytes == 0) {
-							state = LEADING;
-						}
-
-						continue;
-					}
-
+				// Illegal characters: *, ;, <, >, @
+				if (*data == 0x2a || *data == 0x3b || *data == 0x3c
+					|| *data == 0x3e || *data == 0x40) {
 					return false;
 				}
 			}
-		}
-		break;
-	}
+			break;
 
-	default:
-		return false;
+		case ASN1_TAG_IA5STRING:
+		case ASN1_TAG_VISIBLESTRING:
+		case ASN1_TAG_T61STRING:
+			for (data = token->data; data < data_end; data++) {
+				/* Strictly speaking, control codes are allowed for IA5STRING,
+				 * but since we don't have a way of dealing with code-page
+				 * switching we restrict the type. This is non-conformant to the
+				 * spec. Same goes for T61String, which can switch code pages
+				 * mid-stream. We assume that the initial code-page is #6
+				 * (ASCII), and flag switching as an error.
+				 */
+				if (*data < 0x20 || *data > 0x7f) {
+					return false;
+				}
+			}
+			break;
+
+		case ASN1_TAG_UTF8STRING: {
+			enum {
+				LEADING,
+				CONTINUATION
+			} state;
+			int bytes;
+
+			state = LEADING;
+			bytes = 0;
+
+			for (data = token->data; data < data_end; data++) {
+				uint8_t byte = *data;
+
+				switch (state) {
+					case LEADING: {
+						if (byte < 0x80) {
+							continue;
+						}
+
+						if (0xC2 <= byte && byte < 0xD0) {
+							bytes = 1;
+						} else if (0xD0 <= byte && byte < 0xF5) {
+							bytes = (byte >> 4) - 0xC;
+						} else {
+							// 0x80 - 0xBF: Continuation bytes
+							// 0xC0 - 0xC1: Invalid code points
+							return false;
+						}
+
+						state = CONTINUATION;
+						break;
+					}
+
+					case CONTINUATION: {
+						if (0x80 <= byte && byte < 0xC0) {
+							bytes -= 1;
+
+							if (bytes == 0) {
+								state = LEADING;
+							}
+
+							continue;
+						}
+
+						return false;
+					}
+				}
+			}
+			break;
+		}
+
+		default:
+			return false;
 	}
 
 	return true;
@@ -136,7 +139,7 @@ asn1_string(const asn1_token_t *token, char *buf, const size_t num)
 
 	// PRINTABLESTRING can not contain NULL characters per definition
 	// TODO: Update me
-	if (asn1_is(token, ASN1_CLASS_UNIVERSAL, ASN1_TYPE_IA5STRING) &&
+	if (asn1_is(token, ASN1_CLASS_UNIVERSAL, ASN1_TAG_IA5STRING) &&
 		strlen(buf) != token->length) {
 		return ASININE_ERROR_INVALID;
 	}
@@ -144,7 +147,7 @@ asn1_string(const asn1_token_t *token, char *buf, const size_t num)
 	return ASININE_OK;
 }
 
-int
+bool
 asn1_string_eq(const asn1_token_t *token, const char *str)
 {
 	if (!validate_string(token)) {
@@ -336,7 +339,7 @@ asn1_time(const asn1_token_t *token, asn1_time_t *time)
 	}
 
 	// Validation
-	if (token->tag == ASN1_TYPE_UTCTIME) {
+	if (token->type.tag == ASN1_TAG_UTCTIME) {
 		// Years are from (19)50 to (20)49, so 99 is 1999 and 00 is 2000.
 		if (part->year < 0 || part->year > 99) {
 			return ASININE_ERROR_INVALID;
@@ -440,31 +443,50 @@ asn1_bool(const asn1_token_t *token, bool *value)
 }
 
 const char*
-asn1_type_to_string(asn1_class_t class, asn1_tag_t type)
+asinine_err_to_string(asinine_err_t err)
 {
-	if (class != ASN1_CLASS_UNIVERSAL) {
+#define case_for_tag(x) case x: return #x
+	switch (err) {
+		case_for_tag(ASININE_OK);
+		case_for_tag(ASININE_ERROR_INVALID);
+		case_for_tag(ASININE_ERROR_MEMORY);
+		case_for_tag(ASININE_ERROR_UNSUPPORTED);
+		case_for_tag(ASININE_ERROR_UNSUPPORTED_ALGO);
+		case_for_tag(ASININE_ERROR_UNSUPPORTED_EXTN);
+		case_for_tag(ASININE_ERROR_UNTRUSTED);
+		case_for_tag(ASININE_ERROR_EXPIRED);
+	}
+#undef case_for_tag
+
+	return "INVALID";
+}
+
+const char*
+asn1_type_to_string(const asn1_type_t* type)
+{
+	if (type->class != ASN1_CLASS_UNIVERSAL) {
 		return "INVALID CLASS";
 	}
 
-#define case_for_type(x) case x: return #x
-	switch((asn1_universal_tag_t)type) {
-		case_for_type(ASN1_TYPE_BOOL);
-		case_for_type(ASN1_TYPE_INT);
-		case_for_type(ASN1_TYPE_BITSTRING);
-		case_for_type(ASN1_TYPE_OCTETSTRING);
-		case_for_type(ASN1_TYPE_NULL);
-		case_for_type(ASN1_TYPE_OID);
-		case_for_type(ASN1_TYPE_UTF8STRING);
-		case_for_type(ASN1_TYPE_SEQUENCE);
-		case_for_type(ASN1_TYPE_SET);
-		case_for_type(ASN1_TYPE_PRINTABLESTRING);
-		case_for_type(ASN1_TYPE_T61STRING);
-		case_for_type(ASN1_TYPE_IA5STRING);
-		case_for_type(ASN1_TYPE_UTCTIME);
-		case_for_type(ASN1_TYPE_GENERALIZEDTIME);
-		case_for_type(ASN1_TYPE_VISIBLESTRING);
+#define case_for_tag(x) case x: return #x
+	switch((asn1_tag_t)type->tag) {
+		case_for_tag(ASN1_TAG_BOOL);
+		case_for_tag(ASN1_TAG_INT);
+		case_for_tag(ASN1_TAG_BITSTRING);
+		case_for_tag(ASN1_TAG_OCTETSTRING);
+		case_for_tag(ASN1_TAG_NULL);
+		case_for_tag(ASN1_TAG_OID);
+		case_for_tag(ASN1_TAG_UTF8STRING);
+		case_for_tag(ASN1_TAG_SEQUENCE);
+		case_for_tag(ASN1_TAG_SET);
+		case_for_tag(ASN1_TAG_PRINTABLESTRING);
+		case_for_tag(ASN1_TAG_T61STRING);
+		case_for_tag(ASN1_TAG_IA5STRING);
+		case_for_tag(ASN1_TAG_UTCTIME);
+		case_for_tag(ASN1_TAG_GENERALIZEDTIME);
+		case_for_tag(ASN1_TAG_VISIBLESTRING);
 	}
-#undef case_for_type
+#undef case_for_tag
 
 	return "UNKNOWN";
 }
@@ -480,39 +502,94 @@ asn1_raw(const asn1_token_t *token)
 }
 
 bool
+asn1_type_eq(const asn1_type_t a, const asn1_type_t b)
+{
+	return (a.class == b.class) && (a.tag == b.tag);
+}
+
+bool
 asn1_eq(const asn1_token_t *a, const asn1_token_t *b)
 {
-	// TODO: Check that both tokens are ->is_valid?
 	return (a->length == b->length) &&
-	       (a->class == b->class) &&
-	       (a->tag == b->tag) &&
 	       (a->is_primitive == b->is_primitive) &&
+	       asn1_type_eq(a->type, b->type) &&
 	       (memcmp(a->data, b->data, a->length) == 0);
 }
 
-int
-asn1_is(const asn1_token_t *token, asn1_class_t class, asn1_tag_t tag)
+bool
+asn1_is(const asn1_token_t *token, uint8_t class, uint32_t tag)
 {
-	return (token != NULL) && (token->class == class) &&
-		(token->tag == tag);
+	assert(token != NULL);
+
+	return (token->type.class == class) && (token->type.tag == tag);
 }
 
-int
+bool
 asn1_is_time(const asn1_token_t *token)
 {
-	return (token != NULL) &&
-		(token->class == ASN1_CLASS_UNIVERSAL) &&
-		(token->tag == ASN1_TYPE_UTCTIME);
+	assert(token != NULL);
+
+	return (token->type.class == ASN1_CLASS_UNIVERSAL) &&
+		(token->type.tag == ASN1_TAG_UTCTIME);
 }
 
-int
+bool
 asn1_is_string(const asn1_token_t *token)
 {
-	return (token != NULL) &&
-		(token->class == ASN1_CLASS_UNIVERSAL) &&
-		(token->tag == ASN1_TYPE_PRINTABLESTRING ||
-			token->tag == ASN1_TYPE_IA5STRING ||
-			token->tag == ASN1_TYPE_UTF8STRING ||
-			token->tag == ASN1_TYPE_VISIBLESTRING ||
-			token->tag == ASN1_TYPE_T61STRING);
+	assert(token != NULL);
+
+	return (token->type.class == ASN1_CLASS_UNIVERSAL) &&
+		(token->type.tag == ASN1_TAG_PRINTABLESTRING ||
+		token->type.tag == ASN1_TAG_IA5STRING ||
+		token->type.tag == ASN1_TAG_UTF8STRING ||
+		token->type.tag == ASN1_TAG_VISIBLESTRING ||
+		token->type.tag == ASN1_TAG_T61STRING);
+}
+
+bool
+asn1_is_sequence(const asn1_token_t *token)
+{
+	return asn1_is(token, ASN1_CLASS_UNIVERSAL, ASN1_TAG_SEQUENCE);
+}
+
+bool
+asn1_is_oid(const asn1_token_t *token)
+{
+	return asn1_is(token, ASN1_CLASS_UNIVERSAL, ASN1_TAG_OID);
+}
+
+bool
+asn1_is_int(const asn1_token_t *token)
+{
+	return asn1_is(token, ASN1_CLASS_UNIVERSAL, ASN1_TAG_INT);
+}
+
+bool
+asn1_is_bool(const asn1_token_t *token)
+{
+	return asn1_is(token, ASN1_CLASS_UNIVERSAL, ASN1_TAG_BOOL);
+}
+
+bool
+asn1_is_set(const asn1_token_t *token)
+{
+	return asn1_is(token, ASN1_CLASS_UNIVERSAL, ASN1_TAG_SET);
+}
+
+bool
+asn1_is_bitstring(const asn1_token_t *token)
+{
+	return asn1_is(token, ASN1_CLASS_UNIVERSAL, ASN1_TAG_BITSTRING);
+}
+
+bool
+asn1_is_octetstring(const asn1_token_t *token)
+{
+	return asn1_is(token, ASN1_CLASS_UNIVERSAL, ASN1_TAG_OCTETSTRING);
+}
+
+bool
+asn1_is_null(const asn1_token_t *token)
+{
+	return asn1_is(token, ASN1_CLASS_UNIVERSAL, ASN1_TAG_NULL);
 }

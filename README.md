@@ -1,11 +1,10 @@
 libasinine
 ==========
 
-`libasinine` provides decoding facilities of DER encoded ASN.1 data. Specifically,
-the library is intended to parse X.509 certificates. The focus is on small size 
-and static memory allocation, making it suitable for use in an embedded
-environment. In general, you are encouraged to ship `libasinine` with your code,
-and link to it statically.
+`libasinine` provides decoding facilities of DER encoded ASN.1 data, as well as
+X.509 certificates. The focus is on small size and static memory allocation,
+making it suitable for use in an embedded environment. In general, you are
+encouraged to ship `libasinine` with your code, and link to it statically.
 
 Status
 ======
@@ -51,12 +50,12 @@ bool parse_asn1(const uint8_t *data, size_t length)
 	asn1_parser_t parser;
 	asn1_token_t token;
 
-	if (asn1_parser_init(&parser, &token, data, length) < ASININE_OK) {
+	if (asn1_init(&parser, &token, data, length) < ASININE_OK) {
 		// The return code will shed some light on what went wrong
 		return false;
 	}
 
-	if (asn1_parser_next(&parser) < ASININE_OK) {
+	if (asn1_next(&parser) < ASININE_OK) {
 		return false;
 	}
 
@@ -68,7 +67,7 @@ bool parse_asn1(const uint8_t *data, size_t length)
 	// Iterate over unknown number of children
 	asn1_token_t parent = token;
 
-	while (!asn1_parser_eot(&parser, &parent)) {
+	while (!asn1_eot(&parser, &parent)) {
 		// Call asn1_parser_next and then handle the token
 	}
 

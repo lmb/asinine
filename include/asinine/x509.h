@@ -13,7 +13,6 @@ extern "C" {
 
 #include "asinine/asn1.h"
 
-typedef struct x509_parser x509_parser_t;
 typedef struct x509_cert x509_cert_t;
 
 typedef enum x509_version {
@@ -24,6 +23,7 @@ typedef enum x509_version {
 
 typedef enum x509_algorithm {
 	X509_ALGORITHM_INVALID = 0,
+	X509_ALGORITHM_MD5_RSA,	
 	X509_ALGORITHM_SHA1_RSA,
 	X509_ALGORITHM_SHA256_RSA,
 } x509_algorithm_t;
@@ -68,7 +68,8 @@ struct x509_cert {
 	int8_t path_len_constraint;
 };
 
-asinine_err_t x509_parse(x509_cert_t *cert, const uint8_t *data, size_t num);
+ASININE_API asinine_err_t x509_parse(x509_cert_t* cert, const uint8_t* data,
+	size_t num);
 
 #ifdef __cplusplus
 }
