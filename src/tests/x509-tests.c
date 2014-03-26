@@ -15,9 +15,6 @@ test_x509_certs(void)
 	size_t i;
 	bool errors;
 
-	check(x509_parse(&cert, x509_certs[1].data, x509_certs[1].length) ==
-		ASININE_OK);
-
 	for (errors = false, i = 0; i < x509_certs_num; i++) {
 		const char * const host = x509_certs[i].host;
 		const uint8_t * const data = x509_certs[i].data;

@@ -181,7 +181,7 @@ asn1_bitstring(const asn1_token_t *token, uint8_t *buf, const size_t num)
 	size_t i, j;
 
 	// 8.6.2.2 and 10.2
-	if (token->length < 1 || !token->is_primitive) {
+	if (token->length < 1 || token->type.encoding != ASN1_ENCODING_PRIMITIVE) {
 		return ASININE_ERROR_MALFORMED;
 	}
 
@@ -229,8 +229,13 @@ asn1_bitstring(const asn1_token_t *token, uint8_t *buf, const size_t num)
 asinine_err_t
 asn1_int(const asn1_token_t *token, int *value)
 {
+	// TODO: This does not enforce the shortest possible encoding rule
 	bool negative;
 	const uint8_t *data;
+
+	if (token->length == 0) {
+		return ASININE_ERROR_INVALID;
+	}
 
 	if (token->length > sizeof *value) {
 		return ASININE_ERROR_MEMORY;
@@ -421,6 +426,12 @@ asn1_bool(const asn1_token_t *token, bool *value)
 	return ASININE_OK;
 }
 
+asinine_err_t
+asn1_null(const asn1_token_t* token)
+{
+	return (token->length == 0) ? ASININE_OK : ASININE_ERROR_MALFORMED;
+}
+
 const char*
 asinine_err_to_string(asinine_err_t err)
 {
@@ -502,27 +513,36 @@ asn1_raw(const asn1_token_t *token)
 	return token->data;
 }
 
-bool
-asn1_type_eq(const asn1_type_t a, const asn1_type_t b)
+static inline bool
+type_eq(const asn1_type_t* type, asn1_class_t class, asn1_tag_t tag,
+	asn1_encoding_t encoding)
 {
-	return (a.class == b.class) && (a.tag == b.tag);
+	return (type->class == class) && (type->tag == tag) &&
+	       (type->encoding == encoding);
 }
 
 bool
-asn1_eq(const asn1_token_t *a, const asn1_token_t *b)
+asn1_eq(const asn1_token_t* a, const asn1_token_t* b)
 {
+	assert(a != NULL);
+	assert(b != NULL);
+
 	return (a->length == b->length) &&
-	       (a->is_primitive == b->is_primitive) &&
-	       asn1_type_eq(a->type, b->type) &&
-	       (memcmp(a->data, b->data, a->length) == 0);
+	       type_eq(&a->type, b->type.class, b->type.tag, b->type.encoding) &&
+	       // Since passing NULL to memcmp is UB we check for pointer equality:
+	       // 1. Only length == 0 can have NULL data ptrs
+	       // 2. By this point length has to be equal: either both or none NULL
+	       // 3. NULL ptrs will be caught by the first case of this clause
+	       ((a->data == b->data) || memcmp(a->data, b->data, a->length) == 0);
 }
 
 bool
-asn1_is(const asn1_token_t *token, uint8_t class, uint32_t tag)
+asn1_is(const asn1_token_t *token, asn1_class_t class, asn1_tag_t tag,
+	asn1_encoding_t encoding)
 {
 	assert(token != NULL);
 
-	return (token->type.class == class) && (token->type.tag == tag);
+	return type_eq(&token->type, class, tag, encoding);
 }
 
 bool
@@ -530,8 +550,8 @@ asn1_is_time(const asn1_token_t *token)
 {
 	assert(token != NULL);
 
-	return (token->type.class == ASN1_CLASS_UNIVERSAL) &&
-		(token->type.tag == ASN1_TAG_UTCTIME);
+	return type_eq(&token->type, ASN1_CLASS_UNIVERSAL, ASN1_TAG_UTCTIME,
+		ASN1_ENCODING_PRIMITIVE);
 }
 
 bool
@@ -540,57 +560,66 @@ asn1_is_string(const asn1_token_t *token)
 	assert(token != NULL);
 
 	return (token->type.class == ASN1_CLASS_UNIVERSAL) &&
-		(token->type.tag == ASN1_TAG_PRINTABLESTRING ||
-		token->type.tag == ASN1_TAG_IA5STRING ||
-		token->type.tag == ASN1_TAG_UTF8STRING ||
-		token->type.tag == ASN1_TAG_VISIBLESTRING ||
-		token->type.tag == ASN1_TAG_T61STRING);
+	       (token->type.tag == ASN1_TAG_PRINTABLESTRING ||
+	       token->type.tag == ASN1_TAG_IA5STRING ||
+	       token->type.tag == ASN1_TAG_UTF8STRING ||
+	       token->type.tag == ASN1_TAG_VISIBLESTRING ||
+	       token->type.tag == ASN1_TAG_T61STRING) &&
+	       (token->type.encoding == ASN1_ENCODING_PRIMITIVE);
 }
 
 bool
 asn1_is_sequence(const asn1_token_t *token)
 {
-	return asn1_is(token, ASN1_CLASS_UNIVERSAL, ASN1_TAG_SEQUENCE);
+	return asn1_is(token, ASN1_CLASS_UNIVERSAL, ASN1_TAG_SEQUENCE,
+		ASN1_ENCODING_CONSTRUCTED);
 }
 
 bool
 asn1_is_oid(const asn1_token_t *token)
 {
-	return asn1_is(token, ASN1_CLASS_UNIVERSAL, ASN1_TAG_OID);
+	return asn1_is(token, ASN1_CLASS_UNIVERSAL, ASN1_TAG_OID,
+		ASN1_ENCODING_PRIMITIVE);
 }
 
 bool
 asn1_is_int(const asn1_token_t *token)
 {
-	return asn1_is(token, ASN1_CLASS_UNIVERSAL, ASN1_TAG_INT);
+	return asn1_is(token, ASN1_CLASS_UNIVERSAL, ASN1_TAG_INT,
+		ASN1_ENCODING_PRIMITIVE);
 }
 
 bool
 asn1_is_bool(const asn1_token_t *token)
 {
-	return asn1_is(token, ASN1_CLASS_UNIVERSAL, ASN1_TAG_BOOL);
+	return asn1_is(token, ASN1_CLASS_UNIVERSAL, ASN1_TAG_BOOL,
+		ASN1_ENCODING_PRIMITIVE);
 }
 
 bool
 asn1_is_set(const asn1_token_t *token)
 {
-	return asn1_is(token, ASN1_CLASS_UNIVERSAL, ASN1_TAG_SET);
+	return asn1_is(token, ASN1_CLASS_UNIVERSAL, ASN1_TAG_SET,
+		ASN1_ENCODING_CONSTRUCTED);
 }
 
 bool
 asn1_is_bitstring(const asn1_token_t *token)
 {
-	return asn1_is(token, ASN1_CLASS_UNIVERSAL, ASN1_TAG_BITSTRING);
+	return asn1_is(token, ASN1_CLASS_UNIVERSAL, ASN1_TAG_BITSTRING,
+		ASN1_ENCODING_PRIMITIVE);
 }
 
 bool
 asn1_is_octetstring(const asn1_token_t *token)
 {
-	return asn1_is(token, ASN1_CLASS_UNIVERSAL, ASN1_TAG_OCTETSTRING);
+	return asn1_is(token, ASN1_CLASS_UNIVERSAL, ASN1_TAG_OCTETSTRING,
+		ASN1_ENCODING_PRIMITIVE);
 }
 
 bool
 asn1_is_null(const asn1_token_t *token)
 {
-	return asn1_is(token, ASN1_CLASS_UNIVERSAL, ASN1_TAG_NULL);
+	return asn1_is(token, ASN1_CLASS_UNIVERSAL, ASN1_TAG_NULL,
+		ASN1_ENCODING_PRIMITIVE);
 }

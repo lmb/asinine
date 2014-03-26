@@ -15,11 +15,15 @@
 #define TEST_OID1 ASN1_CONST_OID(1,1,2,4)
 #define TEST_OID2 ASN1_CONST_OID(2,999,1)
 
-#define TOKEN_(tag_, dat, len, primitive) \
-	{ .type = { .class = ASN1_CLASS_UNIVERSAL, .tag = (tag_) }, .data = (dat), \
-		.length = (len), .is_primitive = (primitive) }
-#define STR_TOKEN(tag, str) TOKEN_(tag, (uint8_t*)(str), strlen(str), false)
-#define TOKEN(tag, data, primitive) TOKEN_(tag, data, sizeof(data), primitive)
+#define TOKEN_(tag_, dat, len, enc) \
+	{ .type = { \
+		.class = ASN1_CLASS_UNIVERSAL, \
+		.tag = (tag_), \
+		.encoding = (enc) \
+	}, .data = (dat), .length = (len) }
+#define STR_TOKEN(tag, str) \
+	TOKEN_(tag, (uint8_t*)(str), strlen(str), ASN1_ENCODING_PRIMITIVE)
+#define TOKEN(tag, data, enc) TOKEN_(tag, data, sizeof(data), enc)
 
 #define RAW(tag, ...) tag, PP_NARG(__VA_ARGS__), __VA_ARGS__
 #define EMPTY_RAW(tag) tag, 0x00
@@ -29,6 +33,7 @@
 #define EMPTY_INT() EMPTY_RAW(0x02)
 #define OID(...) RAW(0x06, __VA_ARGS__)
 #define EMPTY_OID() EMPTY_RAW(0x06)
+#define NUL() EMPTY_RAW(0x05)
 
 #define NUM(x) (sizeof(x) / sizeof(x[0]))
 
@@ -127,8 +132,10 @@ test_asn1_bitstring_decode(void)
 	const uint8_t valid1[] = { 0x04, 0xaa, 0xf0 };
 	const uint8_t valid2[] = { 0x00 };
 
-	const asn1_token_t token1 = TOKEN(ASN1_TAG_BITSTRING, valid1, true);
-	const asn1_token_t token2 = TOKEN(ASN1_TAG_BITSTRING, valid2, true);
+	const asn1_token_t token1 = TOKEN(ASN1_TAG_BITSTRING, valid1,
+		ASN1_ENCODING_PRIMITIVE);
+	const asn1_token_t token2 = TOKEN(ASN1_TAG_BITSTRING, valid2,
+		ASN1_ENCODING_PRIMITIVE);
 
 	uint8_t buf[2];
 
@@ -152,11 +159,16 @@ test_asn1_bitstring_decode_invalid(void)
 	const uint8_t invalid3[] = { 0x01 };
 	const uint8_t invalid4[] = { 0x00, 0x00 };
 
-	const asn1_token_t token1 = TOKEN(ASN1_TAG_BITSTRING, valid1, false);
-	const asn1_token_t token2 = TOKEN(ASN1_TAG_BITSTRING, invalid1, true);
-	const asn1_token_t token3 = TOKEN(ASN1_TAG_BITSTRING, invalid2, true);
-	const asn1_token_t token4 = TOKEN(ASN1_TAG_BITSTRING, invalid3, true);
-	const asn1_token_t token5 = TOKEN(ASN1_TAG_BITSTRING, invalid4, true);
+	const asn1_token_t token1 = TOKEN(ASN1_TAG_BITSTRING, valid1,
+		ASN1_ENCODING_CONSTRUCTED);
+	const asn1_token_t token2 = TOKEN(ASN1_TAG_BITSTRING, invalid1,
+		ASN1_ENCODING_PRIMITIVE);
+	const asn1_token_t token3 = TOKEN(ASN1_TAG_BITSTRING, invalid2,
+		ASN1_ENCODING_PRIMITIVE);
+	const asn1_token_t token4 = TOKEN(ASN1_TAG_BITSTRING, invalid3,
+		ASN1_ENCODING_PRIMITIVE);
+	const asn1_token_t token5 = TOKEN(ASN1_TAG_BITSTRING, invalid4,
+		ASN1_ENCODING_PRIMITIVE);
 
 	uint8_t buf[1];
 
@@ -173,7 +185,6 @@ test_asn1_bitstring_decode_invalid(void)
 static char*
 test_asn1_parse(void)
 {
-	// TODO: Add empty sequence
 	static const uint8_t raw[] = {
 		SEQ( // 0
 			SEQ( // 1
@@ -188,7 +199,8 @@ test_asn1_parse(void)
 				SEQ( // 9
 					SEQ(INT(0x02)), INT(0x03) // 10 (11) 12
 				)
-			)
+			),
+			EMPTY_SEQ() // 13
 		)
 	};
 
@@ -250,6 +262,32 @@ test_asn1_parse(void)
 	check(asn1_int(&parser.token, &value) == ASININE_OK);
 	check(value == 0x03);
 
+	check(asn1_next(&parser));
+	check(asn1_is_sequence(&parser.token));
+
+	check(asn1_eof(&parser));
+
+	return 0;
+}
+
+static char*
+test_asn1_parse_single(void)
+{
+	const uint8_t raw1[] = { INT(0x10) };
+	const uint8_t raw2[] = { NUL() };
+
+	asn1_parser_t parser;
+
+	asn1_init(&parser, raw1, sizeof raw1);
+	check(asn1_next(&parser));
+	check(asn1_is_int(&parser.token));
+	check(asn1_eof(&parser));
+
+	asn1_init(&parser, raw2, sizeof raw2);
+	check(asn1_next(&parser));
+	check(asn1_is_null(&parser.token));
+	check(asn1_eof(&parser));
+
 	return 0;
 }
 
@@ -262,7 +300,7 @@ test_asn1_parse_invalid(void)
 	const uint8_t invalid2[] = {0x06, 0xFF};
 	// Garbage after root token
 	static const uint8_t invalid3[] = {
-		SEQ(INT(0x01)),
+		NUL(),
 		0xDE, 0xAD, 0xBE, 0xEF
 	};
 
@@ -380,6 +418,7 @@ test_asn1_all(int *tests_run)
 	run_test(test_asn1_bitstring_decode);
 	run_test(test_asn1_bitstring_decode_invalid);
 	run_test(test_asn1_parse);
+	run_test(test_asn1_parse_single);
 	run_test(test_asn1_parse_invalid);
 	run_test(test_asn1_parse_time);
 	run_test(test_asn1_parse_invalid_time);

@@ -12,20 +12,39 @@
 
 #include "asinine/asn1.h"
 
+static void
+prefix(int depth) {
+	int i;
+
+	for (i = 0; i < depth; ++i) {
+		putchar(' ');
+		putchar(' ');
+	}
+}
+
 static bool
 dump_token(asn1_parser_t* parser, int depth)
 {
 	const asn1_token_t* const token = &parser->token;
 	char buf[256] = "";
+	char mark;
 
 	if (!asn1_next(parser)) {
+		if (asn1_eof(parser)) {
+			return true;
+		}
+
+		printf("Could not parse next token\n");
 		return false;
 	}
 
 	asn1_to_string(buf, sizeof buf, &token->type);
-	printf("%s\n", buf);
+	mark = (token->type.encoding == ASN1_ENCODING_PRIMITIVE) ? '|' : '*';
 
-	if (!token->is_primitive) {
+	prefix(depth);
+	printf("%c %s\n", mark, buf);
+
+	if (token->type.encoding == ASN1_ENCODING_CONSTRUCTED) {
 		const asn1_token_t parent = *token;
 
 		asn1_descend(parser);
