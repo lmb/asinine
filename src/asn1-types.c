@@ -229,9 +229,8 @@ asn1_bitstring(const asn1_token_t *token, uint8_t *buf, const size_t num)
 asinine_err_t
 asn1_int(const asn1_token_t *token, int *value)
 {
-	// TODO: This does not enforce the shortest possible encoding rule
+	const uint8_t *data = token->data;
 	bool negative;
-	const uint8_t *data;
 
 	if (token->length == 0) {
 		return ASININE_ERROR_INVALID;
@@ -241,22 +240,26 @@ asn1_int(const asn1_token_t *token, int *value)
 		return ASININE_ERROR_MEMORY;
 	}
 
-	data = token->data;
-	if (*data & 0x80) {
-		negative = true;
-		*value = *data & 0x7F;
-	} else {
-		negative = false;
-		*value = *data;
+	negative = *data & 0x80;
+	*value = *data & 0x7F;
+
+	if (token->length > 1) {
+		const uint8_t* const end = token->data + token->length;
+
+		// 8.3.2
+		uint16_t leading = ((data[0] << 8) | data[1]) >> 7;
+
+		if (leading == 0 || leading == (1<<9)-1) {
+			return ASININE_ERROR_MALFORMED;
+		}
+
+		for (data += 1; data < end; data++) {
+			*value = (*value << 8) | *data;
+		}
 	}
 
-	for (data += 1; data < token->data + token->length; data++) {
-		*value = (*value << 8) | *data;
-	}
-
-	if (negative) {
-		*value = *value * -1;
-	}
+	// http://graphics.stanford.edu/~seander/bithacks.html#ConditionalNegate
+	*value = (*value ^ -negative) + negative;
 
 	return ASININE_OK;
 }
@@ -312,6 +315,11 @@ asn1_time(const asn1_token_t *token, asn1_time_t *time)
 		}
 	}
 
+	// TODO: Support fractional seconds?
+	// TODO: Section 11.7 specifies that time types need to
+	// - truncate trailing zeros or omit fractional seconds including '.'
+	// - use '.' as a fractional delimiter
+
 	if (*data != 'Z') {
 		// Try to decode seconds
 		if (data + 2 >= (char*)(token->data + token->length)) {
@@ -326,9 +334,6 @@ asn1_time(const asn1_token_t *token, asn1_time_t *time)
 	}
 
 	if (*data != 'Z') {
-		// TODO: Parse timezone offset (which is not standards conformant)
-		// TODO: If time did not include seconds, do we need to parse
-		// non-conformant timezone offset?
 		return ASININE_ERROR_MALFORMED;
 	}
 
@@ -368,8 +373,6 @@ asn1_time(const asn1_token_t *token, asn1_time_t *time)
 		return ASININE_ERROR_MALFORMED;
 	}
 
-	// Seconds are "optional"
-	part->second = (part->second == -1) ? 0 : part->second;
 	if (part->second < 0 || part->second > 59) {
 		return ASININE_ERROR_MALFORMED;
 	}

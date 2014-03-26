@@ -191,8 +191,7 @@ test_asn1_parse(void)
 				INT(0x01), // 2
 				INT(0x02)  // 3
 			),
-			// TODO: Should this int encoding be invalid?
-			INT(0x80, 0x10), // 4
+			INT(0x80|0x10), // 4
 			SEQ(INT(0x11)), // 5 (6)
 			SEQ( // 7
 				INT(0x01), // 8
@@ -271,6 +270,23 @@ test_asn1_parse(void)
 }
 
 static char*
+test_asn1_parse_longform(void)
+{
+	// Long-form, 1 byte length, 128 bytes
+	const uint8_t raw[3 + 128] = {
+		0x01, 0x80 | 0x01, 0x80
+	};
+
+	asn1_parser_t parser;
+	asn1_init(&parser, raw, sizeof(raw));
+
+	check(asn1_next(&parser));
+	check(parser.token.length == 128);
+
+	return 0;
+}
+
+static char*
 test_asn1_parse_single(void)
 {
 	const uint8_t raw1[] = { INT(0x10) };
@@ -299,9 +315,22 @@ test_asn1_parse_invalid(void)
 	// Reserved
 	const uint8_t invalid2[] = {0x06, 0xFF};
 	// Garbage after root token
-	static const uint8_t invalid3[] = {
+	const uint8_t invalid3[] = {
 		NUL(),
 		0xDE, 0xAD, 0xBE, 0xEF
+	};
+	// Long-form, length < 128
+	const uint8_t invalid4[] = {
+		0x01, 0x80 | 0x01, 0x01
+	};
+	// Long-form, length too long
+	const uint8_t invalid5[] = {
+		0x01, 0x80 | 0x0C,
+		0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+	};
+	// Long-form, length encoding not of minimum length
+	const uint8_t invalid6[] = {
+		0x01, 0x80 | 0x03, 0x00, 0x01, 0x00
 	};
 
 	asn1_parser_t parser;
@@ -315,6 +344,18 @@ test_asn1_parse_invalid(void)
 	check(asn1_get_error(&parser) == ASININE_ERROR_MALFORMED);
 
 	asn1_init(&parser, invalid3, sizeof(invalid3));
+	check(!asn1_next(&parser));
+	check(asn1_get_error(&parser) == ASININE_ERROR_MALFORMED);
+
+	asn1_init(&parser, invalid4, sizeof(invalid4));
+	check(!asn1_next(&parser));
+	check(asn1_get_error(&parser) == ASININE_ERROR_MALFORMED);
+
+	asn1_init(&parser, invalid5, sizeof(invalid5));
+	check(!asn1_next(&parser));
+	check(asn1_get_error(&parser) == ASININE_ERROR_UNSUPPORTED);
+
+	asn1_init(&parser, invalid6, sizeof(invalid6));
 	check(!asn1_next(&parser));
 	check(asn1_get_error(&parser) == ASININE_ERROR_MALFORMED);
 
@@ -403,6 +444,25 @@ test_asn1_parse_invalid_time(void)
 	return 0;
 }
 
+static char*
+test_asn1_parse_invalid_int(void)
+{
+	const uint8_t leading_ones_raw[] = { 0xFF, 0xFF };
+	const asn1_token_t leading_ones_token = TOKEN(ASN1_TAG_INT,
+		leading_ones_raw, ASN1_ENCODING_PRIMITIVE);
+
+	const uint8_t leading_zeroes_raw[] = { 0x00, 0x01 };
+	const asn1_token_t leading_zeroes_token = TOKEN(ASN1_TAG_INT,
+		leading_zeroes_raw, ASN1_ENCODING_PRIMITIVE);
+
+	int value;
+
+	check(asn1_int(&leading_ones_token, &value) == ASININE_ERROR_MALFORMED);
+	check(asn1_int(&leading_zeroes_token, &value) == ASININE_ERROR_MALFORMED);
+
+	return 0;
+}
+
 int
 test_asn1_all(int *tests_run)
 {
@@ -418,10 +478,12 @@ test_asn1_all(int *tests_run)
 	run_test(test_asn1_bitstring_decode);
 	run_test(test_asn1_bitstring_decode_invalid);
 	run_test(test_asn1_parse);
+	run_test(test_asn1_parse_longform);
 	run_test(test_asn1_parse_single);
 	run_test(test_asn1_parse_invalid);
 	run_test(test_asn1_parse_time);
 	run_test(test_asn1_parse_invalid_time);
+	run_test(test_asn1_parse_invalid_int);
 
 	end_set;
 }

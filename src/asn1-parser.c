@@ -27,6 +27,7 @@
 #define CONTENT_LENGTH_MASK            ((1<<7)-1)
 // X.690 11/2008 item 8.1.3.5 (c)
 #define CONTENT_LENGTH_LONG_RESERVED   ((1<<7)-1)
+#define CONTENT_LENGTH_LONG_MIN        (128)
 
 #define CONTENT_LENGTH_IS_LONG_FORM(x) ((x) & CONTENT_LENGTH_LONG_MASK)
 
@@ -193,10 +194,9 @@ asn1_next(asn1_parser_t *parser)
 		if (num_bytes == CONTENT_LENGTH_LONG_RESERVED) {
 			return set_error(parser, ASININE_ERROR_MALFORMED);
 		} else if (num_bytes == 0) {
-			// Indefinite form is not forbidden (X.690 11/2008 8.1.3.6)
+			// Indefinite form is forbidden (X.690 11/2008 8.1.3.6)
 			return set_error(parser, ASININE_ERROR_MALFORMED);
 		} else if (num_bytes > sizeof token->length) {
-			// TODO: Write a test for this
 			return set_error(parser, ASININE_ERROR_UNSUPPORTED);
 		}
 
@@ -206,7 +206,16 @@ asn1_next(asn1_parser_t *parser)
 				return false;
 			}
 
+			if (token->length == 0 && *parser->current == 0) {
+				return set_error(parser, ASININE_ERROR_MALFORMED);
+			}
+
 			token->length = (token->length << 8) | *parser->current;
+		}
+
+		// 10.1
+		if (token->length < CONTENT_LENGTH_LONG_MIN){
+			return set_error(parser, ASININE_ERROR_MALFORMED);
 		}
 	} else {
 		token->length = *parser->current & CONTENT_LENGTH_MASK;
