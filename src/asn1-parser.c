@@ -139,15 +139,13 @@ advance_pos(asn1_parser_t* parser, size_t num)
 bool
 asn1_next(asn1_parser_t *parser)
 {
-	const uint8_t* const parent_end = parser->parents[parser->depth];
-	asn1_token_t* token = &parser->token;
+	asn1_token_t* const token = &parser->token;
 
-	if (parser->current >= parent_end) {
+	if (parser->current >= parser->parents[parser->depth]) {
 		return set_error(parser, ASININE_ERROR_MALFORMED);
 	}
 
-	if (parser->constraint > 0 &&
-		parser->constraint != parser->depth) {
+	if (parser->constraint != parser->depth) {
 		return set_error(parser, ASININE_ERROR_INVALID);
 	}
 

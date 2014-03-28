@@ -53,6 +53,8 @@ test_asn1_oid_decode(void)
 	asn1_init(&parser, raw, sizeof(raw));
 	check(asn1_next(&parser));
 
+	check(asn1_descend(&parser));
+
 	check(asn1_next(&parser));
 	check(asn1_oid(&parser.token, &oid) == ASININE_OK);
 	check(asn1_oid_eq(&oid, TEST_OID1));
@@ -60,6 +62,9 @@ test_asn1_oid_decode(void)
 	check(asn1_next(&parser));
 	check(asn1_oid(&parser.token, &oid) == ASININE_OK);
 	check(asn1_oid_eq(&oid, TEST_OID2));
+
+	check(asn1_ascend(&parser, 1));
+	check(asn1_valid(&parser));
 
 	return 0;
 }
@@ -82,13 +87,22 @@ test_asn1_oid_decode_invalid(void)
 	asn1_init(&parser, invalid_padding, sizeof(invalid_padding));
 
 	check(asn1_next(&parser));
-	check(asn1_oid(&parser.token, &oid) == ASININE_ERROR_MALFORMED);
+	check(asn1_descend(&parser));
+
 	check(asn1_next(&parser));
 	check(asn1_oid(&parser.token, &oid) == ASININE_ERROR_MALFORMED);
+
 	check(asn1_next(&parser));
 	check(asn1_oid(&parser.token, &oid) == ASININE_ERROR_MALFORMED);
+
 	check(asn1_next(&parser));
 	check(asn1_oid(&parser.token, &oid) == ASININE_ERROR_MALFORMED);
+
+	check(asn1_next(&parser));
+	check(asn1_oid(&parser.token, &oid) == ASININE_ERROR_MALFORMED);
+
+	check(asn1_ascend(&parser, 1));
+	check(asn1_valid(&parser));
 
 	return 0;
 }
@@ -196,7 +210,8 @@ test_asn1_parse(void)
 			SEQ( // 7
 				INT(0x01), // 8
 				SEQ( // 9
-					SEQ(INT(0x02)), INT(0x03) // 10 (11) 12
+					SEQ(INT(0x02)), // 10 (11)
+					INT(0x03) // 12
 				)
 			),
 			EMPTY_SEQ() // 13
@@ -208,63 +223,91 @@ test_asn1_parse(void)
 
 	asn1_init(&parser, raw, sizeof(raw));
 
+	// 0
 	check(asn1_next(&parser));
 	check(asn1_is_sequence(&parser.token));
+	check(asn1_descend(&parser));
 
+	// 1
 	check(asn1_next(&parser));
 	check(asn1_is_sequence(&parser.token));
+	check(asn1_descend(&parser));
 
+	// 2
 	check(asn1_next(&parser));
 	check(asn1_is_int(&parser.token));
 	check(asn1_int(&parser.token, &value) == ASININE_OK);
 	check(value == 0x01);
 
+	// 3
 	check(asn1_next(&parser));
 	check(asn1_is_int(&parser.token));
 	check(asn1_int(&parser.token, &value) == ASININE_OK);
 	check(value == 0x02);
 
+	check(asn1_ascend(&parser, 1));
+
+	// 4
 	check(asn1_next(&parser));
 	check(asn1_is_int(&parser.token));
 	check(asn1_int(&parser.token, &value) == ASININE_OK);
 	check(value == -0x10);
 
+	// 5
 	check(asn1_next(&parser));
 	check(asn1_is_sequence(&parser.token));
+	check(asn1_descend(&parser));
 
+	// 6
 	check(asn1_next(&parser));
 	check(asn1_is_int(&parser.token));
 	check(asn1_int(&parser.token, &value) == ASININE_OK);
 	check(value == 0x11);
 
+	check(asn1_ascend(&parser, 1));
+
+	// 7
 	check(asn1_next(&parser));
 	check(asn1_is_sequence(&parser.token));
+	check(asn1_descend(&parser));
 
+	// 8
 	check(asn1_next(&parser));
 	check(asn1_is_int(&parser.token));
 	check(asn1_int(&parser.token, &value) == ASININE_OK);
 	check(value == 0x01);
 
+	// 9
 	check(asn1_next(&parser));
 	check(asn1_is_sequence(&parser.token));
+	check(asn1_descend(&parser));
 
+	// 10
 	check(asn1_next(&parser));
 	check(asn1_is_sequence(&parser.token));
+	check(asn1_descend(&parser));
 
+	// 11
 	check(asn1_next(&parser));
 	check(asn1_is_int(&parser.token));
 	check(asn1_int(&parser.token, &value) == ASININE_OK);
 	check(value == 0x02);
 
+	check(asn1_ascend(&parser, 1));
+
+	// 12
 	check(asn1_next(&parser));
 	check(asn1_is_int(&parser.token));
 	check(asn1_int(&parser.token, &value) == ASININE_OK);
 	check(value == 0x03);
 
+	check(asn1_ascend(&parser, 2));
+
+	// 13
 	check(asn1_next(&parser));
 	check(asn1_is_sequence(&parser.token));
 
-	check(asn1_eof(&parser));
+	check(asn1_valid(&parser));
 
 	return 0;
 }
