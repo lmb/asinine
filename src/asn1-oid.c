@@ -9,6 +9,7 @@
 #include "asinine/asn1.h"
 
 #define MIN(a,b) (((a) < (b)) ? a : b)
+#define NUM(x) (sizeof x / sizeof (x)[0])
 
 #define OID_MINIMUM_ARCS 2
 
@@ -149,6 +150,13 @@ asn1_oid_eq(const asn1_oid_t *oid, size_t num, ...)
 int
 asn1_oid_cmp(const asn1_oid_t *a, const asn1_oid_t *b)
 {
-	// Works because all unused arcs are guaranteed to be zero by asn1_oid
-	return memcmp(a->arcs, b->arcs, sizeof a->arcs);
+	size_t i;
+
+	for (i = 0; i < NUM(a->arcs); ++i) {
+		if (a->arcs[i] != b->arcs[i]) {
+			return (a->arcs[i] > b->arcs[i]) - (a->arcs[i] < b->arcs[i]);
+		}
+	}
+
+	return 0;
 }
