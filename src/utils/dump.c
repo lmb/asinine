@@ -13,16 +13,17 @@
 
 #include "asinine/asn1.h"
 
-#define BYTES_PER_LINE (8)
+#define BYTES_PER_LINE (12)
 
 static void
-prefix(const asn1_parser_t* parser) {
-	size_t i;
+prelude(const asn1_token_t* token, int depth) {
+	const asn1_type_t* const type = &token->type;
 
-	for (i = 0; i < parser->depth; ++i) {
-		putchar(' ');
-		putchar(' ');
-	}
+	char mark = (type->encoding == ASN1_ENCODING_PRIMITIVE) ? '-' : '*';
+	char buf[256];
+
+	asn1_to_string(buf, sizeof buf, type);
+	printf("%*s%c %s", depth * 2, "", mark, buf);
 }
 
 static char
@@ -32,7 +33,7 @@ to_printable(uint8_t value)
 }
 
 static void
-hexdump(const asn1_parser_t* parser, const asn1_token_t* token)
+hexdump(const asn1_token_t* token, int depth)
 {
 	size_t i, j;
 	char printable[BYTES_PER_LINE+1] = "";
@@ -44,7 +45,7 @@ hexdump(const asn1_parser_t* parser, const asn1_token_t* token)
 
 	for (i = 0, j = 0; i < token->length; ++i, j = (j + 1) % BYTES_PER_LINE) {
 		if (j == 0 && i > 0) {
-			printf("%*s", (parser->depth * 2) + 4, "");
+			printf("%*s", (depth*2) + 2, "");
 			printf("|%-*s| %s\n", BYTES_PER_LINE, printable, hex);
 			memset(printable, 0, sizeof printable);
 			memset(hex, 0, sizeof hex);
@@ -55,45 +56,130 @@ hexdump(const asn1_parser_t* parser, const asn1_token_t* token)
 	}
 
 	if (j > 0) {
-		printf("%*s", (parser->depth * 2) + 4, "");
+		printf("%*s", (depth*2) + 2, "");
 		printf("|%-*s| %s\n", BYTES_PER_LINE, printable, hex);
 	}
 }
 
 static bool
-dump_token(asn1_parser_t* parser)
+dump_token(asn1_parser_t* parser, int depth)
 {
 	const asn1_token_t* const token = &parser->token;
-	char buf[256] = "";
-	char mark;
 
 	if (!asn1_next(parser)) {
-		if (asn1_eof(parser)) {
-			return true;
-		}
-
-		printf("Could not parse next token\n");
+		printf("Could not parse token\n");
 		return false;
 	}
 
-	asn1_to_string(buf, sizeof buf, &token->type);
-	mark = (token->type.encoding == ASN1_ENCODING_PRIMITIVE) ? ' ' : '>';
-
-	prefix(parser);
-	printf("%c %s\n", mark, buf);
+	prelude(token, depth);
 
 	if (token->type.encoding == ASN1_ENCODING_CONSTRUCTED) {
 		const asn1_token_t parent = *token;
 
+		printf("\n");
+
 		asn1_descend(parser);
 		while (!asn1_eot(parser, &parent)) {
-			if (!dump_token(parser)) {
+			if (!dump_token(parser, depth+1)) {
 				return false;
 			}
 		}
 		asn1_ascend(parser, 1);
+	} else if (token->type.class == ASN1_CLASS_UNIVERSAL) {
+		char buf[256];
+
+		switch ((asn1_tag_t)token->type.tag) {
+			case ASN1_TAG_T61STRING:
+			case ASN1_TAG_IA5STRING:
+			case ASN1_TAG_UTF8STRING:
+			case ASN1_TAG_VISIBLESTRING:
+			case ASN1_TAG_PRINTABLESTRING: {
+				if (asn1_string(token, buf, sizeof buf) < ASININE_OK) {
+					printf(" <INVALID>\n");
+					break;
+				}
+
+				printf(" '%s'\n", buf);
+				break;
+			}
+
+			case ASN1_TAG_INT: {
+				int value;
+
+				if (asn1_int(token, &value) < ASININE_OK) {
+					printf(" <INVALID>\n");
+					break;
+				}
+
+				printf(" %d\n", value);
+				break;
+			}
+
+			case ASN1_TAG_OID: {
+				asn1_oid_t oid;
+
+				if (asn1_oid(token, &oid) < ASININE_OK) {
+					printf(" <INVALID>\n");
+					break;
+				}
+
+				if (sizeof buf <= asn1_oid_to_string(buf, sizeof buf, &oid)) {
+					printf(" <TOO LONG>\n");
+					break;
+				}
+
+				printf(" %s\n", buf);
+				break;
+			}
+
+			case ASN1_TAG_UTCTIME:
+			case ASN1_TAG_GENERALIZEDTIME: {
+				asn1_time_t time;
+
+				if (asn1_time(token, &time) < ASININE_OK) {
+					printf(" <INVALID>\n");
+					break;
+				}
+
+				if (sizeof buf <= asn1_time_to_string(buf, sizeof buf, &time)) {
+					printf(" <TOO LONG>\n");
+					break;
+				}
+
+				printf(" %s\n", buf);
+				break;
+			}
+
+			case ASN1_TAG_OCTETSTRING: {
+				printf("\n");
+				hexdump(token, depth);
+				break;
+			}
+
+			case ASN1_TAG_BOOL: {
+				bool value;
+
+				if (asn1_bool(token, &value) < ASININE_OK) {
+					printf(" <INVALID>\n");
+					break;
+				}
+
+				printf(" %s\n", value ? "True" : "False");
+				break;
+			}
+
+			case ASN1_TAG_NULL: {
+				printf("\n");
+				break;
+			}
+
+			default:
+				printf(" <NOT IMPLEMENTED>\n");
+				break;
+		}
 	} else {
-		hexdump(parser, token);
+		printf("\n");
+		hexdump(token, depth);
 	}
 
 	return true;
@@ -120,9 +206,11 @@ int main(int argc, const char* argv[])
 
 	asn1_init(&parser, contents, length);
 
-	if (!dump_token(&parser)) {
+	if (!dump_token(&parser, 0)) {
 		return 1;
 	}
+
+	return 0;
 }
 
 static const uint8_t*
