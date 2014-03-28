@@ -13,17 +13,17 @@
 #include "asinine/asn1.h"
 
 static void
-prefix(int depth) {
-	int i;
+prefix(const asn1_parser_t* parser) {
+	size_t i;
 
-	for (i = 0; i < depth; ++i) {
+	for (i = 0; i < parser->depth; ++i) {
 		putchar(' ');
 		putchar(' ');
 	}
 }
 
 static bool
-dump_token(asn1_parser_t* parser, int depth)
+dump_token(asn1_parser_t* parser)
 {
 	const asn1_token_t* const token = &parser->token;
 	char buf[256] = "";
@@ -39,9 +39,9 @@ dump_token(asn1_parser_t* parser, int depth)
 	}
 
 	asn1_to_string(buf, sizeof buf, &token->type);
-	mark = (token->type.encoding == ASN1_ENCODING_PRIMITIVE) ? '|' : '*';
+	mark = (token->type.encoding == ASN1_ENCODING_PRIMITIVE) ? ' ' : '>';
 
-	prefix(depth);
+	prefix(parser);
 	printf("%c %s\n", mark, buf);
 
 	if (token->type.encoding == ASN1_ENCODING_CONSTRUCTED) {
@@ -49,7 +49,7 @@ dump_token(asn1_parser_t* parser, int depth)
 
 		asn1_descend(parser);
 		while (!asn1_eot(parser, &parent)) {
-			if (!dump_token(parser, depth+1)) {
+			if (!dump_token(parser)) {
 				return false;
 			}
 		}
@@ -80,7 +80,7 @@ int main(int argc, const char* argv[])
 
 	asn1_init(&parser, contents, length);
 
-	if (!dump_token(&parser, 0)) {
+	if (!dump_token(&parser)) {
 		return 1;
 	}
 }
