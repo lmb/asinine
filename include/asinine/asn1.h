@@ -70,9 +70,15 @@ typedef enum asn1_encoding {
 	ASN1_ENCODING_CONSTRUCTED = 1
 } asn1_encoding_t;
 
-// TODO: Remove these two in favour of explicit type sizes? These are going to
-// be part of the ABI anyways
-typedef int64_t asn1_time_t;
+typedef struct asn1_time {
+	int32_t year;
+	uint8_t month;
+	uint8_t day;
+	uint8_t hour;
+	uint8_t minute;
+	uint8_t second;
+} asn1_time_t;
+
 typedef uint32_t asn1_oid_arc_t;
 
 typedef struct asn1_oid {
@@ -127,7 +133,7 @@ ASININE_API bool asn1_valid(const asn1_parser_t* parser);
 
 /* Types */
 ASININE_API asinine_err_t asn1_string(const asn1_token_t *token, char *buf,
-	const size_t num);
+	size_t num);
 
 /**
  * Deserialize an ASN.1 Bitstring
@@ -154,10 +160,16 @@ ASININE_API asinine_err_t asn1_time(const asn1_token_t *token, asn1_time_t *time
 ASININE_API asinine_err_t asn1_bool(const asn1_token_t *token, bool *value);
 ASININE_API asinine_err_t asn1_null(const asn1_token_t *token);
 ASININE_API const uint8_t* asn1_raw(const asn1_token_t *token);
-ASININE_API size_t asn1_to_string(char *dst, size_t num,
-	const asn1_type_t* type);
+
 ASININE_API bool asn1_string_eq(const asn1_token_t *token, const char *str);
 ASININE_API bool asn1_eq(const asn1_token_t *a, const asn1_token_t *b);
+
+ASININE_API int asn1_time_cmp(const asn1_time_t* a, const asn1_time_t* b);
+
+ASININE_API size_t asn1_to_string(char *dst, size_t num,
+	const asn1_type_t* type);
+ASININE_API size_t asn1_time_to_string(char* dst, size_t num,
+	const asn1_time_t* time);
 
 ASININE_API bool asn1_is(const asn1_token_t *token, asn1_class_t class, asn1_tag_t tag,
 	asn1_encoding_t encoding);

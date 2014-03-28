@@ -35,6 +35,15 @@
 #define EMPTY_OID() EMPTY_RAW(0x06)
 #define NUL() EMPTY_RAW(0x05)
 
+#define TIME(_year, _month, _day, _hour, _minute, _second) (asn1_time_t){ \
+		.year = _year, \
+		.month = _month, \
+		.day = _day, \
+		.hour = _hour, \
+		.minute = _minute, \
+		.second = _second \
+	}
+
 #define NUM(x) (sizeof(x) / sizeof(x[0]))
 
 static char*
@@ -428,16 +437,16 @@ test_asn1_parse_time(void)
 	asn1_time_t time;
 
 	check(asn1_time(&epoch_token, &time) == ASININE_OK);
-	check(time == 0);
+	check(asn1_time_cmp(&time, &TIME(1970, 1, 1, 0, 0, 0)) == 0);
 
 	check(asn1_time(&y2k_token, &time) == ASININE_OK);
-	check(time == 946684800);
+	check(asn1_time_cmp(&time, &TIME(2000, 1, 1, 0, 0, 0)) == 0);
 
 	check(asn1_time(&leap_feb_token, &time) == ASININE_OK);
-	check(time == 951782400);
+	check(asn1_time_cmp(&time, &TIME(2000, 2, 29, 0, 0, 0)) == 0);
 
 	check(asn1_time(&y2k38_token, &time) == ASININE_OK);
-	check(time == 2147483648);
+	check(asn1_time_cmp(&time, &TIME(2038, 1, 19, 3, 14, 8)) == 0);
 
 	return 0;
 }

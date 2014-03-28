@@ -14,8 +14,9 @@
 #define SECONDS_PER_HOUR      (3600)
 #define SECONDS_PER_MINUTE      (60)
 
-/** Y, M, D, H, "Z" */
-#define MIN_DATA_LEN (4 * 2 + 1)
+/** Y, M, D, H, M, S "Z" */
+#define TIME_LENGTH (6 * 2 + 1)
+#define NUM(x) (sizeof x / sizeof (x)[0])
 
 static bool
 validate_string(const asn1_token_t *token)
@@ -125,7 +126,7 @@ validate_string(const asn1_token_t *token)
 
 // 8.23
 asinine_err_t
-asn1_string(const asn1_token_t *token, char *buf, const size_t num)
+asn1_string(const asn1_token_t *token, char *buf, size_t num)
 {
 	if (!validate_string(token)) {
 		return ASININE_ERROR_MALFORMED;
@@ -159,6 +160,20 @@ asn1_string_eq(const asn1_token_t *token, const char *str)
 	}
 
 	return (memcmp(token->data, str, token->length) == 0);
+}
+
+ASININE_API int
+asn1_time_cmp(const asn1_time_t* a, const asn1_time_t* b)
+{
+#define _cmp(a, b) if (a != b) { return (a > b) - (a < b); }
+	_cmp(a->year, b->year);
+	_cmp(a->month, b->month);
+	_cmp(a->day, b->day);
+	_cmp(a->hour, b->hour);
+	_cmp(a->minute, b->minute);
+#undef _cmp
+
+	return (a->minute > b->minute) - (a->minute < b->minute);
 }
 
 // 8.6
@@ -264,8 +279,20 @@ asn1_int(const asn1_token_t *token, int *value)
 	return ASININE_OK;
 }
 
-static bool
-decode_pair(const char *data, int *pair)
+static inline bool
+is_leap_year(int32_t year)
+{
+	return year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
+}
+
+// static inline int
+// leap_days_for_year(int32_t year)
+// {
+// 	return (year - 1968) / 4 - (year - 1900) / 100 + (year - 1600) / 400;
+// }
+
+static inline bool
+decode_pair(const char *data, uint8_t *pair)
 {
 	if (data[0] < 0x30 || data[0] > 0x39 || data[1] < 0x30 || data[1] > 0x39) {
 		return false;
@@ -276,9 +303,8 @@ decode_pair(const char *data, int *pair)
 }
 
 asinine_err_t
-asn1_time(const asn1_token_t *token, asn1_time_t *time)
+asn1_time(const asn1_token_t* token, asn1_time_t* time)
 {
-	// YYMMDDHHMM(SS)(Z|+-D)
 	static const uint8_t days_per_month[12] = {
 		// Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec
 		    31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31
@@ -286,31 +312,18 @@ asn1_time(const asn1_token_t *token, asn1_time_t *time)
 
 	const char *data = (char *)token->data;
 
-	union {
-		struct part {
-			int year;
-			int month;
-			int day;
-			int hour;
-			int minute;
-			int second;
-		} part;
-		int raw[6];
-	} t;
-	struct part *part = &t.part;
+	// YYMMDDHHMMSS(Z|+-D)
+	uint8_t pairs[6];
 
-	int i;
-	int is_leap, leap_days;
+	size_t i;
+	bool is_leap;
 
-	part->year = part->month = part->day = part->hour = part->minute =
-		part->second = -1;
-
-	if (token->length < MIN_DATA_LEN) {
+	if (token->length != TIME_LENGTH) {
 		return ASININE_ERROR_MALFORMED;
 	}
 
-	for (i = 0; i < 5; data += 2, i++) {
-		if (!decode_pair(data, &t.raw[i])) {
+	for (i = 0; i < NUM(pairs); data += 2, i++) {
+		if (!decode_pair(data, &pairs[i])) {
 			return ASININE_ERROR_MALFORMED;
 		}
 	}
@@ -321,88 +334,53 @@ asn1_time(const asn1_token_t *token, asn1_time_t *time)
 	// - use '.' as a fractional delimiter
 
 	if (*data != 'Z') {
-		// Try to decode seconds
-		if (data + 2 >= (char*)(token->data + token->length)) {
-			// Need at least another char for seconds, plus 'Z' or timezone
-			return ASININE_ERROR_MALFORMED;
-		}
-
-		if (!decode_pair(data, &part->second)) {
-			return ASININE_ERROR_MALFORMED;
-		}
-		data += 2;
-	}
-
-	if (*data != 'Z') {
 		return ASININE_ERROR_MALFORMED;
 	}
+
+	time->year   = pairs[0];
+	time->month  = pairs[1];
+	time->day    = pairs[2];
+	time->hour   = pairs[3];
+	time->minute = pairs[4];
+	time->second = pairs[5];
 
 	// Validation
 	if (token->type.tag == ASN1_TAG_UTCTIME) {
 		// Years are from (19)50 to (20)49, so 99 is 1999 and 00 is 2000.
-		if (part->year < 0 || part->year > 99) {
+		if (time->year > 99) {
 			return ASININE_ERROR_MALFORMED;
 		}
 
 		// Normalize years, since the encoding is not linear:
 		// 00 -> 2000, 49 -> 2049, 50 -> 1950, 99 -> 1999
-		part->year += (part->year > 49) ? 1900 : 2000;
+		time->year += (time->year > 49) ? 1900 : 2000;
 	} else {
 		return ASININE_ERROR_MALFORMED;
 	}
 
-	is_leap = part->year % 4 == 0 &&
-		(part->year % 100 != 0 || part->year % 400 == 0);
+	is_leap = is_leap_year(time->year);
 
-	if (part->month < 1 || part->month > 12) {
+	if (time->month < 1 || time->month > 12) {
 		return ASININE_ERROR_MALFORMED;
 	}
 
-	if (part->day < 1) {
+	if (time->day < 1) {
 		return ASININE_ERROR_MALFORMED;
-	} else if (is_leap && part->month == 2) {
-		// Check February in leap years
-		if (part->day > 29) {
+	} else if (is_leap && time->month == 2) {
+		if (time->day > 29) {
 			return ASININE_ERROR_MALFORMED;
 		}
-	} else if (part->day > days_per_month[part->month - 1]) {
+	} else if (time->day > days_per_month[time->month - 1]) {
 		return ASININE_ERROR_MALFORMED;
 	}
 
-	if (part->hour < 0 || part->hour > 23) {
+	if (time->hour > 23) {
 		return ASININE_ERROR_MALFORMED;
 	}
 
-	if (part->second < 0 || part->second > 59) {
+	if (time->second > 59) {
 		return ASININE_ERROR_MALFORMED;
 	}
-
-	// Convert to UNIX time (approximately)
-	leap_days = (part->year - 1968) / 4 - (part->year - 1900) / 100 +
-		(part->year - 1600) / 400;
-
-	if (is_leap && part->month < 3) {
-		// Do not add leap day if current year is leap year and date specified
-		// is before March 1st
-		leap_days -= 1;
-	}
-
-	part->year  -= 1970;
-	part->month -= 1;
-	part->day   -= 1;
-
-	*time = part->year * SECONDS_PER_YEAR;
-
-	for (i = 0; i < part->month; i++) {
-		*time += days_per_month[i] * SECONDS_PER_DAY;
-	}
-
-	*time += part->day  * SECONDS_PER_DAY;
-	*time += part->hour * SECONDS_PER_HOUR;
-	*time += part->minute * SECONDS_PER_MINUTE;
-	*time += part->second;
-
-	*time += leap_days * SECONDS_PER_DAY;
 
 	return ASININE_OK;
 }
@@ -496,7 +474,7 @@ tag_to_string(asn1_tag_t tag)
 }
 
 size_t
-asn1_to_string(char *dst, size_t num, const asn1_type_t* type)
+asn1_to_string(char* dst, size_t num, const asn1_type_t* type)
 {
 	if (type->class == ASN1_CLASS_UNIVERSAL) {
 		return snprintf(dst, num, "%s", tag_to_string(type->tag));
@@ -504,6 +482,14 @@ asn1_to_string(char *dst, size_t num, const asn1_type_t* type)
 		const char* class = class_to_string(type->class);
 		return snprintf(dst, num, "%s:%d", class, type->tag);
 	}
+}
+
+size_t
+asn1_time_to_string(char* dst, size_t num, const asn1_time_t *time)
+{
+	return snprintf(dst, num, "%04d-%02u-%02u %02u:%02u:%02u UTC",
+		time->year, time->month, time->day,
+		time->hour, time->minute, time->second);
 }
 
 const uint8_t*
