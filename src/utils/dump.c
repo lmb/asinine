@@ -5,12 +5,15 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
 
 #include "asinine/asn1.h"
+
+#define BYTES_PER_LINE (8)
 
 static void
 prefix(const asn1_parser_t* parser) {
@@ -19,6 +22,41 @@ prefix(const asn1_parser_t* parser) {
 	for (i = 0; i < parser->depth; ++i) {
 		putchar(' ');
 		putchar(' ');
+	}
+}
+
+static char
+to_printable(uint8_t value)
+{
+	return (32 <= value && value <= 127) ? (char)value : '.';
+}
+
+static void
+hexdump(const asn1_parser_t* parser, const asn1_token_t* token)
+{
+	size_t i, j;
+	char printable[BYTES_PER_LINE+1] = "";
+	char hex[(3*BYTES_PER_LINE)+1] = "";
+
+	if (token->data == NULL) {
+		return;
+	}
+
+	for (i = 0, j = 0; i < token->length; ++i, j = (j + 1) % BYTES_PER_LINE) {
+		if (j == 0 && i > 0) {
+			printf("%*s", (parser->depth * 2) + 4, "");
+			printf("|%-*s| %s\n", BYTES_PER_LINE, printable, hex);
+			memset(printable, 0, sizeof printable);
+			memset(hex, 0, sizeof hex);
+		}
+
+		printable[j] = to_printable(token->data[i]);
+		snprintf(hex + (j * 3), 4, "%02X ", token->data[i]);
+	}
+
+	if (j > 0) {
+		printf("%*s", (parser->depth * 2) + 4, "");
+		printf("|%-*s| %s\n", BYTES_PER_LINE, printable, hex);
 	}
 }
 
@@ -54,6 +92,8 @@ dump_token(asn1_parser_t* parser)
 			}
 		}
 		asn1_ascend(parser, 1);
+	} else {
+		hexdump(parser, token);
 	}
 
 	return true;
