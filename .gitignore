@@ -16,9 +16,14 @@
 *.exe
 *.out
 *.app
-./tests
+/tests
+/dump
 
 # Build system files
-Makefile
-obj/
+/Makefile
+/obj
 *.make
+*.sublime-workspace
+
+# Misc
+.DS_Store
