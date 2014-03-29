@@ -349,12 +349,12 @@ test_asn1_parse_single(void)
 	asn1_init(&parser, raw1, sizeof raw1);
 	check(asn1_next(&parser));
 	check(asn1_is_int(&parser.token));
-	check(asn1_eof(&parser));
+	check(asn1_valid(&parser));
 
 	asn1_init(&parser, raw2, sizeof raw2);
 	check(asn1_next(&parser));
 	check(asn1_is_null(&parser.token));
-	check(asn1_eof(&parser));
+	check(asn1_valid(&parser));
 
 	return 0;
 }
@@ -396,8 +396,8 @@ test_asn1_parse_invalid(void)
 	check(asn1_get_error(&parser) == ASININE_ERROR_MALFORMED);
 
 	asn1_init(&parser, invalid3, sizeof(invalid3));
-	check(!asn1_next(&parser));
-	check(asn1_get_error(&parser) == ASININE_ERROR_MALFORMED);
+	check(asn1_next(&parser));
+	check(!asn1_valid(&parser));
 
 	asn1_init(&parser, invalid4, sizeof(invalid4));
 	check(!asn1_next(&parser));

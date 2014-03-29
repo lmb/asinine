@@ -106,13 +106,7 @@ asn1_eot(const asn1_parser_t *parser, const asn1_token_t *token)
 	return parser->current >= token->data + token->length;
 }
 
-bool
-asn1_eof(const asn1_parser_t* parser)
-{
-	return (parser->current == parser->parents[0]);
-}
-
-bool
+ASININE_API bool
 asn1_valid(const asn1_parser_t* parser)
 {
 	return (parser->depth == 0) && (parser->current == parser->parents[0]) &&
