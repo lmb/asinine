@@ -101,9 +101,9 @@ asn1_skip_unsafe(asn1_parser_t *parser)
 }
 
 bool
-asn1_eot(const asn1_parser_t *parser, const asn1_token_t *token)
+asn1_eot(asn1_parser_t* parser)
 {
-	return parser->current >= token->data + token->length;
+	return parser->depth < parser->constraint;
 }
 
 ASININE_API bool
@@ -134,6 +134,10 @@ bool
 asn1_next(asn1_parser_t *parser)
 {
 	asn1_token_t* const token = &parser->token;
+
+	if (parser->last_error != ASININE_OK) {
+		return false;
+	}
 
 	if (parser->current >= parser->parents[parser->depth]) {
 		return set_error(parser, ASININE_ERROR_MALFORMED);

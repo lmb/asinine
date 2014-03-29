@@ -322,6 +322,68 @@ test_asn1_parse(void)
 }
 
 static char*
+test_asn1_parse_nested(void)
+{
+	const uint8_t raw[] = {
+		SEQ( // 1
+			SEQ( // 2
+				INT(0x01),
+				SEQ(INT(0x02)),
+				INT(0x03),
+				SEQ(INT(0x04))
+			),
+			INT(0x05),
+			SEQ( // 2
+				INT(0x06),
+				SEQ(INT(0x07)),
+				INT(0x08),
+				SEQ(INT(0x09))
+			),
+			INT(0x0A)
+		)
+	};
+
+	asn1_parser_t parser;
+	int value, test = 1;
+
+	asn1_init(&parser, raw, sizeof raw);
+
+	check(asn1_next(&parser));
+	check(asn1_descend(&parser));
+	while (!asn1_eot(&parser)) { // 1
+		check(asn1_next(&parser));
+		check(asn1_descend(&parser));
+		while (!asn1_eot(&parser)) { // 2
+			check(asn1_next(&parser));
+			check(asn1_int(&parser.token, &value) == ASININE_OK);
+			check(value == test);
+			test++;
+
+			check(asn1_next(&parser));
+			check(asn1_descend(&parser));
+
+			check(asn1_next(&parser));
+			check(asn1_int(&parser.token, &value) == ASININE_OK);
+			check(value == test);
+			test++;
+
+			check(asn1_ascend(&parser, 1));
+		}
+		asn1_ascend(&parser, 1);
+
+		check(asn1_next(&parser));
+		check(asn1_int(&parser.token, &value) == ASININE_OK);
+		check(value == test);
+		test++;
+	}
+	asn1_ascend(&parser, 1);
+
+	check(asn1_valid(&parser));
+
+	return 0;
+}
+
+static char*
 test_asn1_parse_longform(void)
 {
 	// Long-form, 1 byte length, 128 bytes
@@ -530,6 +592,7 @@ test_asn1_all(int *tests_run)
 	run_test(test_asn1_bitstring_decode);
 	run_test(test_asn1_bitstring_decode_invalid);
 	run_test(test_asn1_parse);
+	run_test(test_asn1_parse_nested);
 	run_test(test_asn1_parse_longform);
 	run_test(test_asn1_parse_single);
 	run_test(test_asn1_parse_invalid);

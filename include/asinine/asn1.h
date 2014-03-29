@@ -125,7 +125,7 @@ ASININE_API asinine_err_t asn1_get_error(const asn1_parser_t* parser);
  *         on a full parse.
  */
 ASININE_API void asn1_skip_unsafe(asn1_parser_t *parser);
-ASININE_API bool asn1_eot(const asn1_parser_t *parser, const asn1_token_t *token);
+ASININE_API bool asn1_eot(asn1_parser_t *parser);
 ASININE_API bool asn1_ascend(asn1_parser_t *parser, uint8_t levels);
 ASININE_API bool asn1_descend(asn1_parser_t *parser);
 ASININE_API bool asn1_valid(const asn1_parser_t* parser);

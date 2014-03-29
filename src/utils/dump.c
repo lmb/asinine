@@ -74,12 +74,10 @@ dump_token(asn1_parser_t* parser, int depth)
 	prelude(token, depth);
 
 	if (token->type.encoding == ASN1_ENCODING_CONSTRUCTED) {
-		const asn1_token_t parent = *token;
-
 		printf("\n");
 
 		asn1_descend(parser);
-		while (!asn1_eot(parser, &parent)) {
+		while (!asn1_eot(parser)) {
 			if (!dump_token(parser, depth+1)) {
 				return false;
 			}

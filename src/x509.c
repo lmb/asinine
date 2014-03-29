@@ -112,8 +112,8 @@ static const extension_lookup_t extensions[] = {
 #define NEXT_TOKEN(parser) do { \
 		if (!asn1_next(parser)) { return ASININE_ERROR_INVALID; } \
 	} while (0)
-#define NEXT_CHILD(parser, parent) do { \
-		if (asn1_eot(parser, parent)) { return ASININE_OK; } \
+#define NEXT_CHILD(parser) do { \
+		if (asn1_eot(parser)) { return ASININE_OK; } \
 		if (!asn1_next(parser)) { return asn1_get_error(parser); } \
 	} while (0)
 
@@ -260,18 +260,17 @@ find_algorithm(x509_cert_t *cert, const asn1_oid_t *oid)
 static asinine_err_t
 parse_optional(asn1_parser_t *parser, x509_cert_t *cert)
 {
-	const asn1_token_t* const parent = &cert->certificate;
 	const asn1_token_t* const token = &parser->token;
 
 	if (cert->version >= X509_V2) {
-		NEXT_CHILD(parser, parent);
+		NEXT_CHILD(parser);
 
 		// issuerUniqueID
 		if (asn1_is(token, ASN1_CLASS_CONTEXT, 1, ASN1_ENCODING_PRIMITIVE)) {
 			// TODO: Do something
 			printf("Got issuerUniqueID\n");
 
-			NEXT_CHILD(parser, parent);
+			NEXT_CHILD(parser);
 		}
 
 		// subjectUniqueID
@@ -279,7 +278,7 @@ parse_optional(asn1_parser_t *parser, x509_cert_t *cert)
 			// TODO: Do something
 			printf("Got subjectUniqueID\n");
 
-			NEXT_CHILD(parser, parent);
+			NEXT_CHILD(parser);
 		}
 
 		// extensions
@@ -295,7 +294,7 @@ parse_optional(asn1_parser_t *parser, x509_cert_t *cert)
 		RETURN_ON_ERROR(parse_extensions(parser, cert));
 	}
 
-	return !asn1_eot(parser, parent) ? ASININE_ERROR_INVALID :
+	return !asn1_eot(parser) ? ASININE_ERROR_INVALID :
 		ASININE_OK;
 }
 
@@ -317,7 +316,6 @@ static asinine_err_t
 parse_extensions(asn1_parser_t *parser, x509_cert_t *cert)
 {
 	const asn1_token_t* const token = &parser->token;
-	const asn1_token_t parent = *token;
 
 	asn1_descend(parser);
 
@@ -328,7 +326,7 @@ parse_extensions(asn1_parser_t *parser, x509_cert_t *cert)
 	}
 	asn1_descend(parser);
 
-	while (!asn1_eot(parser, &parent)) {
+	while (!asn1_eot(parser)) {
 		asn1_oid_t id;
 		bool critical;
 		extension_parser_t extn_parser;
@@ -499,7 +497,6 @@ static asinine_err_t
 parse_extn_ext_key_usage(x509_cert_t *cert, const asn1_token_t *extension)
 {
 	asn1_parser_t parser;
-	asn1_token_t parent;
 
 	asn1_init(&parser, extension->data, extension->length);
 
@@ -513,8 +510,7 @@ parse_extn_ext_key_usage(x509_cert_t *cert, const asn1_token_t *extension)
 
 	cert->ext_key_usage = 0;
 
-	parent = parser.token;
-	while (!asn1_eot(&parser, &parent)) {
+	while (!asn1_eot(&parser)) {
 		asn1_oid_t oid;
 
 		NEXT_TOKEN(&parser);
@@ -555,7 +551,6 @@ static asinine_err_t
 parse_extn_basic_constraints(x509_cert_t *cert,
 	const asn1_token_t *extension) {
 	asn1_parser_t parser;
-	asn1_token_t parent;
 	int value;
 
 	asn1_init(&parser, extension->data, extension->length);
@@ -568,15 +563,14 @@ parse_extn_basic_constraints(x509_cert_t *cert,
 
 	asn1_descend(&parser);
 
-	parent = parser.token;
 	cert->is_ca = false;
 	cert->path_len_constraint = -1;
 
-	NEXT_CHILD(&parser, &parent);
+	NEXT_CHILD(&parser);
 
 	if (asn1_is_bool(&parser.token)) {
 		asn1_bool(&parser.token, &cert->is_ca);
-		NEXT_CHILD(&parser, &parent);
+		NEXT_CHILD(&parser);
 	}
 
 	RETURN_ON_ERROR(asn1_int(&parser.token, &value));
