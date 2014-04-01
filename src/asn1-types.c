@@ -245,7 +245,8 @@ asinine_err_t
 asn1_int(const asn1_token_t *token, int *value)
 {
 	const uint8_t *data = token->data;
-	bool negative;
+	int interim, mask;
+	size_t i;
 
 	if (token->length == 0) {
 		return ASININE_ERROR_INVALID;
@@ -255,26 +256,24 @@ asn1_int(const asn1_token_t *token, int *value)
 		return ASININE_ERROR_MEMORY;
 	}
 
-	negative = *data & 0x80;
-	*value = *data & 0x7F;
-
 	if (token->length > 1) {
-		const uint8_t* const end = token->data + token->length;
-
 		// 8.3.2
 		uint16_t leading = ((data[0] << 8) | data[1]) >> 7;
 
 		if (leading == 0 || leading == (1<<9)-1) {
 			return ASININE_ERROR_MALFORMED;
 		}
-
-		for (data += 1; data < end; data++) {
-			*value = (*value << 8) | *data;
-		}
 	}
 
-	// http://graphics.stanford.edu/~seander/bithacks.html#ConditionalNegate
-	*value = (*value ^ -negative) + negative;
+	interim = 0;
+	for (i = 0; i < token->length; ++i) {
+		// This never shifts a negative number, and is therefore not UB
+		interim = (interim << 8) | data[i];
+	}
+
+	// Sign extend
+	mask = 1U << ((token->length * 8) - 1);
+	*value = (interim ^ mask) - mask;
 
 	return ASININE_OK;
 }

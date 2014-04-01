@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <limits.h>
 
 #include "asinine/asn1.h"
 #include "asinine/macros.h"
@@ -214,7 +215,7 @@ test_asn1_parse(void)
 				INT(0x01), // 2
 				INT(0x02)  // 3
 			),
-			INT(0x80|0x10), // 4
+			INT(0xFF), // 4
 			SEQ(INT(0x11)), // 5 (6)
 			SEQ( // 7
 				INT(0x01), // 8
@@ -260,7 +261,7 @@ test_asn1_parse(void)
 	check(asn1_next(&parser));
 	check(asn1_is_int(&parser.token));
 	check(asn1_int(&parser.token, &value) == ASININE_OK);
-	check(value == -0x10);
+	check(value == -1);
 
 	// 5
 	check(asn1_next(&parser));
@@ -403,14 +404,22 @@ test_asn1_parse_longform(void)
 static char*
 test_asn1_parse_single(void)
 {
-	const uint8_t raw1[] = { INT(0x10) };
+	uint8_t raw1[2 + sizeof(int)] = { EMPTY_INT() };
 	const uint8_t raw2[] = { NUL() };
 
+	int value;
+
 	asn1_parser_t parser;
+
+	raw1[1] = (uint8_t)sizeof(int);
+	raw1[2] = 0x80;
+	raw1[1 + sizeof(int)] = 0x01;
 
 	asn1_init(&parser, raw1, sizeof raw1);
 	check(asn1_next(&parser));
 	check(asn1_is_int(&parser.token));
+	check(asn1_int(&parser.token, &value) == ASININE_OK);
+	check(value == 1 - INT_MIN);
 	check(asn1_valid(&parser));
 
 	asn1_init(&parser, raw2, sizeof raw2);
