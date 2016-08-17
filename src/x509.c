@@ -72,6 +72,11 @@ static const algorithm_lookup_t algorithms[] = {
 		ASN1_OID(1,2,840,113549,1,1,5),
 		X509_ALGORITHM_SHA1_RSA,
 		&parse_null_args
+	},
+	{
+		ASN1_OID(1,2,840,113549,1,1,11),
+		X509_ALGORITHM_SHA256_RSA,
+		&parse_null_args
 	}
 };
 

@@ -25,6 +25,7 @@ typedef enum x509_version {
 typedef enum x509_algorithm {
 	X509_ALGORITHM_INVALID = 0,
 	X509_ALGORITHM_SHA1_RSA,
+	X509_ALGORITHM_SHA256_RSA,
 } x509_algorithm_t;
 
 /**
