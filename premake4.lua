@@ -6,12 +6,15 @@ solution "Asinine"
 	configurations { "Debug", "Release" }
 	includedirs { "include" }
 
-	buildoptions { "-std=c99", "-pedantic", "-ffunction-sections",
-		"-Wextra", "-Wall", "-fvisibility=hidden" }
+	buildoptions { "-std=c99", "-Wpedantic", "-ffunction-sections",
+		"-Wextra", "-Wall", "-fvisibility=hidden", "-Wstrict-overflow",
+		"-fno-strict-aliasing", "-Wno-missing-field-initializers",
+		"-Wno-missing-braces" }
 
 	configuration "Debug"
 		defines { "DEBUG" }
 		flags { "Symbols", "FatalWarnings" }
+		buildoptions { "-Wshadow" }
 
 	configuration "Release"
 		defines { "NDEBUG" }
