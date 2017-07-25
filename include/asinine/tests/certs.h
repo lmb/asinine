@@ -5,12 +5,12 @@
 #ifndef __ASININE_TESTS_CERTS_H__
 #define __ASININE_TESTS_CERTS_H__
 
-#include <stdint.h>
 #include <stddef.h>
+#include <stdint.h>
 
 typedef struct {
-	const char* host;
-	const uint8_t* data;
+	const char *host;
+	const uint8_t *data;
 	const size_t length;
 } test_cert_t;
 

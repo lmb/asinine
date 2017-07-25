@@ -2,123 +2,117 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include <string.h>
 #include <assert.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "asinine/asn1.h"
 
-#define SECONDS_PER_YEAR  (31536000)
-#define SECONDS_PER_MONTH  (2629744)
-#define SECONDS_PER_DAY      (86400)
-#define SECONDS_PER_HOUR      (3600)
-#define SECONDS_PER_MINUTE      (60)
+#define SECONDS_PER_YEAR (31536000)
+#define SECONDS_PER_MONTH (2629744)
+#define SECONDS_PER_DAY (86400)
+#define SECONDS_PER_HOUR (3600)
+#define SECONDS_PER_MINUTE (60)
 
 /** Y, M, D, H, M, S "Z" */
 #define TIME_LENGTH (6 * 2 + 1)
-#define NUM(x) (sizeof x / sizeof (x)[0])
+#define NUM(x) (sizeof x / sizeof(x)[0])
 
 static bool
-validate_string(const asn1_token_t *token)
-{
-	const uint8_t* data;
-	const uint8_t* const data_end = token->data + token->length;
+validate_string(const asn1_token_t *token) {
+	const uint8_t *data;
+	const uint8_t *const data_end = token->data + token->length;
 
 	if (token == NULL || token->type.class != ASN1_CLASS_UNIVERSAL) {
 		return false;
 	}
 
 	switch (token->type.tag) {
-		case ASN1_TAG_PRINTABLESTRING:
-			for (data = token->data; data < data_end; data++) {
-				// Space
-				if (*data == 0x20) {
+	case ASN1_TAG_PRINTABLESTRING:
+		for (data = token->data; data < data_end; data++) {
+			// Space
+			if (*data == 0x20) {
+				continue;
+			}
+
+			// ' and z
+			if (*data < 0x27 || *data > 0x7a) {
+				return false;
+			}
+
+			// Illegal characters: *, ;, <, >, @
+			if (*data == 0x2a || *data == 0x3b || *data == 0x3c ||
+			    *data == 0x3e || *data == 0x40) {
+				return false;
+			}
+		}
+		break;
+
+	case ASN1_TAG_IA5STRING:
+	case ASN1_TAG_VISIBLESTRING:
+	case ASN1_TAG_T61STRING:
+		for (data = token->data; data < data_end; data++) {
+			/* Strictly speaking, control codes are allowed for IA5STRING,
+			 * but since we don't have a way of dealing with code-page
+			 * switching we restrict the type. This is non-conformant to the
+			 * spec. Same goes for T61String, which can switch code pages
+			 * mid-stream. We assume that the initial code-page is #6
+			 * (ASCII), and flag switching as an error.
+			 */
+			if (*data < 0x20 || *data > 0x7f) {
+				return false;
+			}
+		}
+		break;
+
+	case ASN1_TAG_UTF8STRING: {
+		enum { LEADING, CONTINUATION } state;
+		int bytes;
+
+		state = LEADING;
+		bytes = 0;
+
+		for (data = token->data; data < data_end; data++) {
+			uint8_t byte = *data;
+
+			switch (state) {
+			case LEADING:
+				if (byte < 0x80) {
 					continue;
 				}
 
-				// ' and z
-				if (*data < 0x27 || *data > 0x7a) {
+				if (0xC2 <= byte && byte < 0xD0) {
+					bytes = 1;
+				} else if (0xD0 <= byte && byte < 0xF5) {
+					bytes = (byte >> 4) - 0xC;
+				} else {
+					// 0x80 - 0xBF: Continuation bytes
+					// 0xC0 - 0xC1: Invalid code points
 					return false;
 				}
 
-				// Illegal characters: *, ;, <, >, @
-				if (*data == 0x2a || *data == 0x3b || *data == 0x3c
-					|| *data == 0x3e || *data == 0x40) {
-					return false;
-				}
-			}
-			break;
+				state = CONTINUATION;
+				break;
 
-		case ASN1_TAG_IA5STRING:
-		case ASN1_TAG_VISIBLESTRING:
-		case ASN1_TAG_T61STRING:
-			for (data = token->data; data < data_end; data++) {
-				/* Strictly speaking, control codes are allowed for IA5STRING,
-				 * but since we don't have a way of dealing with code-page
-				 * switching we restrict the type. This is non-conformant to the
-				 * spec. Same goes for T61String, which can switch code pages
-				 * mid-stream. We assume that the initial code-page is #6
-				 * (ASCII), and flag switching as an error.
-				 */
-				if (*data < 0x20 || *data > 0x7f) {
-					return false;
-				}
-			}
-			break;
+			case CONTINUATION:
+				if (0x80 <= byte && byte < 0xC0) {
+					bytes -= 1;
 
-		case ASN1_TAG_UTF8STRING: {
-			enum {
-				LEADING,
-				CONTINUATION
-			} state;
-			int bytes;
-
-			state = LEADING;
-			bytes = 0;
-
-			for (data = token->data; data < data_end; data++) {
-				uint8_t byte = *data;
-
-				switch (state) {
-					case LEADING: {
-						if (byte < 0x80) {
-							continue;
-						}
-
-						if (0xC2 <= byte && byte < 0xD0) {
-							bytes = 1;
-						} else if (0xD0 <= byte && byte < 0xF5) {
-							bytes = (byte >> 4) - 0xC;
-						} else {
-							// 0x80 - 0xBF: Continuation bytes
-							// 0xC0 - 0xC1: Invalid code points
-							return false;
-						}
-
-						state = CONTINUATION;
-						break;
+					if (bytes == 0) {
+						state = LEADING;
 					}
 
-					case CONTINUATION: {
-						if (0x80 <= byte && byte < 0xC0) {
-							bytes -= 1;
-
-							if (bytes == 0) {
-								state = LEADING;
-							}
-
-							continue;
-						}
-
-						return false;
-					}
+					continue;
 				}
+
+				return false;
 			}
-			break;
 		}
+		break;
+	}
 
-		default:
-			return false;
+	default:
+		return false;
 	}
 
 	return true;
@@ -126,8 +120,7 @@ validate_string(const asn1_token_t *token)
 
 // 8.23
 asinine_err_t
-asn1_string(const asn1_token_t *token, char *buf, size_t num)
-{
+asn1_string(const asn1_token_t *token, char *buf, size_t num) {
 	if (!validate_string(token)) {
 		return ASININE_ERROR_MALFORMED;
 	}
@@ -149,8 +142,7 @@ asn1_string(const asn1_token_t *token, char *buf, size_t num)
 }
 
 bool
-asn1_string_eq(const asn1_token_t *token, const char *str)
-{
+asn1_string_eq(const asn1_token_t *token, const char *str) {
 	if (!validate_string(token)) {
 		return false;
 	}
@@ -163,9 +155,11 @@ asn1_string_eq(const asn1_token_t *token, const char *str)
 }
 
 ASININE_API int
-asn1_time_cmp(const asn1_time_t* a, const asn1_time_t* b)
-{
-#define _cmp(a, b) if (a != b) { return (a > b) - (a < b); }
+asn1_time_cmp(const asn1_time_t *a, const asn1_time_t *b) {
+#define _cmp(a, b) \
+	if (a != b) { \
+		return (a > b) - (a < b); \
+	}
 	_cmp(a->year, b->year);
 	_cmp(a->month, b->month);
 	_cmp(a->day, b->day);
@@ -178,15 +172,10 @@ asn1_time_cmp(const asn1_time_t* a, const asn1_time_t* b)
 
 // 8.6
 asinine_err_t
-asn1_bitstring(const asn1_token_t *token, uint8_t *buf, const size_t num)
-{
+asn1_bitstring(const asn1_token_t *token, uint8_t *buf, const size_t num) {
 	// Thank you http://stackoverflow.com/a/2603254
-	static const uint8_t lookup[16] = {
-		0x0, 0x8, 0x4, 0xC,
-		0x2, 0xA, 0x6, 0xE,
-		0x1, 0x9, 0x5, 0xD,
-		0x3, 0xB, 0x7, 0xF
-	};
+	static const uint8_t lookup[16] = {0x0, 0x8, 0x4, 0xC, 0x2, 0xA, 0x6, 0xE,
+	    0x1, 0x9, 0x5, 0xD, 0x3, 0xB, 0x7, 0xF};
 
 	/* First byte is number of unused bits in the last byte, must be <= 7. Last
 	 * byte must not be 0, since it is not the smallest possible encoding.
@@ -242,8 +231,7 @@ asn1_bitstring(const asn1_token_t *token, uint8_t *buf, const size_t num)
 
 // 8.3
 asinine_err_t
-asn1_int(const asn1_token_t *token, int *value)
-{
+asn1_int(const asn1_token_t *token, int *value) {
 	const uint8_t *data = token->data;
 	int interim, mask;
 	size_t i;
@@ -260,7 +248,7 @@ asn1_int(const asn1_token_t *token, int *value)
 		// 8.3.2
 		uint16_t leading = ((data[0] << 8) | data[1]) >> 7;
 
-		if (leading == 0 || leading == (1<<9)-1) {
+		if (leading == 0 || leading == (1 << 9) - 1) {
 			return ASININE_ERROR_MALFORMED;
 		}
 	}
@@ -272,15 +260,14 @@ asn1_int(const asn1_token_t *token, int *value)
 	}
 
 	// Sign extend
-	mask = 1U << ((token->length * 8) - 1);
+	mask   = 1U << ((token->length * 8) - 1);
 	*value = (interim ^ mask) - mask;
 
 	return ASININE_OK;
 }
 
 static inline bool
-is_leap_year(int32_t year)
-{
+is_leap_year(int32_t year) {
 	return year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
 }
 
@@ -291,8 +278,7 @@ is_leap_year(int32_t year)
 // }
 
 static inline bool
-decode_pair(const char *data, uint8_t *pair)
-{
+decode_pair(const char *data, uint8_t *pair) {
 	if (data[0] < 0x30 || data[0] > 0x39 || data[1] < 0x30 || data[1] > 0x39) {
 		return false;
 	}
@@ -302,12 +288,10 @@ decode_pair(const char *data, uint8_t *pair)
 }
 
 asinine_err_t
-asn1_time(const asn1_token_t* token, asn1_time_t* time)
-{
+asn1_time(const asn1_token_t *token, asn1_time_t *time) {
 	static const uint8_t days_per_month[12] = {
-		// Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec
-		    31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31
-	};
+	    // Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec
+	    31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 
 	const char *data = (char *)token->data;
 
@@ -385,8 +369,7 @@ asn1_time(const asn1_token_t* token, asn1_time_t* time)
 }
 
 asinine_err_t
-asn1_bool(const asn1_token_t *token, bool *value)
-{
+asn1_bool(const asn1_token_t *token, bool *value) {
 	uint8_t data;
 
 	if (token->length != 1) {
@@ -407,15 +390,15 @@ asn1_bool(const asn1_token_t *token, bool *value)
 }
 
 asinine_err_t
-asn1_null(const asn1_token_t* token)
-{
+asn1_null(const asn1_token_t *token) {
 	return (token->length == 0) ? ASININE_OK : ASININE_ERROR_MALFORMED;
 }
 
-const char*
-asinine_err_to_string(asinine_err_t err)
-{
-#define case_for_tag(x) case x: return #x
+const char *
+asinine_err_to_string(asinine_err_t err) {
+#define case_for_tag(x) \
+	case x: \
+		return #x
 	switch (err) {
 		case_for_tag(ASININE_OK);
 		case_for_tag(ASININE_ERROR_MALFORMED);
@@ -426,32 +409,36 @@ asinine_err_to_string(asinine_err_t err)
 		case_for_tag(ASININE_ERROR_INVALID);
 		case_for_tag(ASININE_ERROR_INVALID_UNTRUSTED);
 		case_for_tag(ASININE_ERROR_INVALID_EXPIRED);
-		default: return "UNKNOWN";
+	default:
+		return "UNKNOWN";
 	}
 #undef case_for_tag
 }
 
-static const char*
-class_to_string(asn1_class_t class)
-{
+static const char *
+class_to_string(asn1_class_t class) {
 #undef case_for
-#define case_for(x) case x: return #x
-	switch ((asn1_class_t)class) {
+#define case_for(x) \
+	case x: \
+		return #x
+	switch ((asn1_class_t) class) {
 		case_for(ASN1_CLASS_UNIVERSAL);
 		case_for(ASN1_CLASS_APPLICATION);
 		case_for(ASN1_CLASS_CONTEXT);
 		case_for(ASN1_CLASS_PRIVATE);
-		default: return "UNKNOWN";
+	default:
+		return "UNKNOWN";
 	}
 #undef case_for
 }
 
-static const char*
-tag_to_string(asn1_tag_t tag)
-{
+static const char *
+tag_to_string(asn1_tag_t tag) {
 #undef case_for
-#define case_for(x) case x: return #x
-	switch((asn1_tag_t)tag) {
+#define case_for(x) \
+	case x: \
+		return #x
+	switch ((asn1_tag_t)tag) {
 		case_for(ASN1_TAG_BOOL);
 		case_for(ASN1_TAG_INT);
 		case_for(ASN1_TAG_BITSTRING);
@@ -467,33 +454,30 @@ tag_to_string(asn1_tag_t tag)
 		case_for(ASN1_TAG_UTCTIME);
 		case_for(ASN1_TAG_GENERALIZEDTIME);
 		case_for(ASN1_TAG_VISIBLESTRING);
-		default: return "UNKNOWN";
+	default:
+		return "UNKNOWN";
 	}
 #undef case_for
 }
 
 size_t
-asn1_to_string(char* dst, size_t num, const asn1_type_t* type)
-{
+asn1_to_string(char *dst, size_t num, const asn1_type_t *type) {
 	if (type->class == ASN1_CLASS_UNIVERSAL) {
 		return snprintf(dst, num, "%s", tag_to_string(type->tag));
 	} else {
-		const char* class = class_to_string(type->class);
+		const char *class = class_to_string(type->class);
 		return snprintf(dst, num, "%s:%d", class, type->tag);
 	}
 }
 
 size_t
-asn1_time_to_string(char* dst, size_t num, const asn1_time_t *time)
-{
-	return snprintf(dst, num, "%04d-%02u-%02u %02u:%02u:%02u UTC",
-		time->year, time->month, time->day,
-		time->hour, time->minute, time->second);
+asn1_time_to_string(char *dst, size_t num, const asn1_time_t *time) {
+	return snprintf(dst, num, "%04d-%02u-%02u %02u:%02u:%02u UTC", time->year,
+	    time->month, time->day, time->hour, time->minute, time->second);
 }
 
-const uint8_t*
-asn1_raw(const asn1_token_t *token)
-{
+const uint8_t *
+asn1_raw(const asn1_token_t *token) {
 	if (token->data == NULL || token->length == 0) {
 		return NULL;
 	}
@@ -502,16 +486,14 @@ asn1_raw(const asn1_token_t *token)
 }
 
 static inline bool
-type_eq(const asn1_type_t* type, asn1_class_t class, asn1_tag_t tag,
-	asn1_encoding_t encoding)
-{
+type_eq(const asn1_type_t *type, asn1_class_t class, asn1_tag_t tag,
+    asn1_encoding_t encoding) {
 	return (type->class == class) && (type->tag == tag) &&
 	       (type->encoding == encoding);
 }
 
 bool
-asn1_eq(const asn1_token_t* a, const asn1_token_t* b)
-{
+asn1_eq(const asn1_token_t *a, const asn1_token_t *b) {
 	assert(a != NULL);
 	assert(b != NULL);
 
@@ -526,88 +508,77 @@ asn1_eq(const asn1_token_t* a, const asn1_token_t* b)
 
 bool
 asn1_is(const asn1_token_t *token, asn1_class_t class, asn1_tag_t tag,
-	asn1_encoding_t encoding)
-{
+    asn1_encoding_t encoding) {
 	assert(token != NULL);
 
 	return type_eq(&token->type, class, tag, encoding);
 }
 
 bool
-asn1_is_time(const asn1_token_t *token)
-{
+asn1_is_time(const asn1_token_t *token) {
 	assert(token != NULL);
 
 	return type_eq(&token->type, ASN1_CLASS_UNIVERSAL, ASN1_TAG_UTCTIME,
-		ASN1_ENCODING_PRIMITIVE);
+	    ASN1_ENCODING_PRIMITIVE);
 }
 
 bool
-asn1_is_string(const asn1_token_t *token)
-{
+asn1_is_string(const asn1_token_t *token) {
 	assert(token != NULL);
 
 	return (token->type.class == ASN1_CLASS_UNIVERSAL) &&
 	       (token->type.tag == ASN1_TAG_PRINTABLESTRING ||
-	       token->type.tag == ASN1_TAG_IA5STRING ||
-	       token->type.tag == ASN1_TAG_UTF8STRING ||
-	       token->type.tag == ASN1_TAG_VISIBLESTRING ||
-	       token->type.tag == ASN1_TAG_T61STRING) &&
+	           token->type.tag == ASN1_TAG_IA5STRING ||
+	           token->type.tag == ASN1_TAG_UTF8STRING ||
+	           token->type.tag == ASN1_TAG_VISIBLESTRING ||
+	           token->type.tag == ASN1_TAG_T61STRING) &&
 	       (token->type.encoding == ASN1_ENCODING_PRIMITIVE);
 }
 
 bool
-asn1_is_sequence(const asn1_token_t *token)
-{
+asn1_is_sequence(const asn1_token_t *token) {
 	return asn1_is(token, ASN1_CLASS_UNIVERSAL, ASN1_TAG_SEQUENCE,
-		ASN1_ENCODING_CONSTRUCTED);
+	    ASN1_ENCODING_CONSTRUCTED);
 }
 
 bool
-asn1_is_oid(const asn1_token_t *token)
-{
-	return asn1_is(token, ASN1_CLASS_UNIVERSAL, ASN1_TAG_OID,
-		ASN1_ENCODING_PRIMITIVE);
+asn1_is_oid(const asn1_token_t *token) {
+	return asn1_is(
+	    token, ASN1_CLASS_UNIVERSAL, ASN1_TAG_OID, ASN1_ENCODING_PRIMITIVE);
 }
 
 bool
-asn1_is_int(const asn1_token_t *token)
-{
-	return asn1_is(token, ASN1_CLASS_UNIVERSAL, ASN1_TAG_INT,
-		ASN1_ENCODING_PRIMITIVE);
+asn1_is_int(const asn1_token_t *token) {
+	return asn1_is(
+	    token, ASN1_CLASS_UNIVERSAL, ASN1_TAG_INT, ASN1_ENCODING_PRIMITIVE);
 }
 
 bool
-asn1_is_bool(const asn1_token_t *token)
-{
-	return asn1_is(token, ASN1_CLASS_UNIVERSAL, ASN1_TAG_BOOL,
-		ASN1_ENCODING_PRIMITIVE);
+asn1_is_bool(const asn1_token_t *token) {
+	return asn1_is(
+	    token, ASN1_CLASS_UNIVERSAL, ASN1_TAG_BOOL, ASN1_ENCODING_PRIMITIVE);
 }
 
 bool
-asn1_is_set(const asn1_token_t *token)
-{
-	return asn1_is(token, ASN1_CLASS_UNIVERSAL, ASN1_TAG_SET,
-		ASN1_ENCODING_CONSTRUCTED);
+asn1_is_set(const asn1_token_t *token) {
+	return asn1_is(
+	    token, ASN1_CLASS_UNIVERSAL, ASN1_TAG_SET, ASN1_ENCODING_CONSTRUCTED);
 }
 
 bool
-asn1_is_bitstring(const asn1_token_t *token)
-{
+asn1_is_bitstring(const asn1_token_t *token) {
 	return asn1_is(token, ASN1_CLASS_UNIVERSAL, ASN1_TAG_BITSTRING,
-		ASN1_ENCODING_PRIMITIVE);
+	    ASN1_ENCODING_PRIMITIVE);
 }
 
 bool
-asn1_is_octetstring(const asn1_token_t *token)
-{
+asn1_is_octetstring(const asn1_token_t *token) {
 	return asn1_is(token, ASN1_CLASS_UNIVERSAL, ASN1_TAG_OCTETSTRING,
-		ASN1_ENCODING_PRIMITIVE);
+	    ASN1_ENCODING_PRIMITIVE);
 }
 
 bool
-asn1_is_null(const asn1_token_t *token)
-{
-	return asn1_is(token, ASN1_CLASS_UNIVERSAL, ASN1_TAG_NULL,
-		ASN1_ENCODING_PRIMITIVE);
+asn1_is_null(const asn1_token_t *token) {
+	return asn1_is(
+	    token, ASN1_CLASS_UNIVERSAL, ASN1_TAG_NULL, ASN1_ENCODING_PRIMITIVE);
 }

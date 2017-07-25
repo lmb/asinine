@@ -2,71 +2,67 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include <string.h>
 #include <assert.h>
+#include <string.h>
 
 #include "asinine/asn1.h"
 
 #if ASN1_MAXIMUM_DEPTH > UINT8_MAX
-#	error Maximum ASN.1 depth must be smaller than UINT8_MAX
+#error Maximum ASN.1 depth must be smaller than UINT8_MAX
 #endif
 
 // X.690 11/2008 item 8.1.2.4.1
 #define TYPE_MULTIPART_TAG (31)
 
-#define TYPE_CLASS(x)      (((x) & (3<<6)) >> 6)
-#define TYPE_ENCODING(x)   (((x) & (1<<5)) >> 5)
-#define TYPE_TAG(x)        ((x) & ((1<<5)-1))
+#define TYPE_CLASS(x) (((x) & (3 << 6)) >> 6)
+#define TYPE_ENCODING(x) (((x) & (1 << 5)) >> 5)
+#define TYPE_TAG(x) ((x) & ((1 << 5) - 1))
 
 #define MULTIPART_TAG_BITS_PER_BYTE (7)
-#define MULTIPART_TAG_MASK          ((1<<7)-1)
-#define MULTIPART_TAG_CONTINUATION  (1<<7)
+#define MULTIPART_TAG_MASK ((1 << 7) - 1)
+#define MULTIPART_TAG_CONTINUATION (1 << 7)
 
 // X.690 11/2008 item 8.1.3.5 (a)
-#define CONTENT_LENGTH_LONG_MASK       (1<<7)
-#define CONTENT_LENGTH_MASK            ((1<<7)-1)
+#define CONTENT_LENGTH_LONG_MASK (1 << 7)
+#define CONTENT_LENGTH_MASK ((1 << 7) - 1)
 // X.690 11/2008 item 8.1.3.5 (c)
-#define CONTENT_LENGTH_LONG_RESERVED   ((1<<7)-1)
-#define CONTENT_LENGTH_LONG_MIN        (128)
+#define CONTENT_LENGTH_LONG_RESERVED ((1 << 7) - 1)
+#define CONTENT_LENGTH_LONG_MIN (128)
 
-#define CONTENT_LENGTH_IS_LONG_FORM(x) ((x) & CONTENT_LENGTH_LONG_MASK)
+#define CONTENT_LENGTH_IS_LONG_FORM(x) ((x)&CONTENT_LENGTH_LONG_MASK)
 
 #define NUM(x) (sizeof x / sizeof *(x))
 
 static void
-update_depth(asn1_parser_t *parser)
-{
+update_depth(asn1_parser_t *parser) {
 	// Check whether we're at the end of the parent token. If so, we ascend one
 	// level and update the depth.
 	while (parser->current == parser->parents[parser->depth] &&
-		parser->depth > 0) {
+	       parser->depth > 0) {
 		parser->depth--;
 	}
 }
 
 static inline bool
-set_error(asn1_parser_t* parser, asinine_err_t error)
-{
+set_error(asn1_parser_t *parser, asinine_err_t error) {
 	parser->last_error = error;
 	return false;
 }
 
 void
-asn1_init(asn1_parser_t *parser, const uint8_t *data, size_t length)
-{
+asn1_init(asn1_parser_t *parser, const uint8_t *data, size_t length) {
 	assert(parser != NULL);
 	assert(data != NULL);
 
 	memset(parser, 0, sizeof *parser);
 
 	parser->last_error = ASININE_OK;
-	parser->current = data;
+	parser->current    = data;
 	parser->parents[0] = data + length;
 }
 
 bool
-asn1_ascend(asn1_parser_t *parser, uint8_t levels)
-{
+asn1_ascend(asn1_parser_t *parser, uint8_t levels) {
 	if (levels > parser->constraint) {
 		return set_error(parser, ASININE_ERROR_INVALID);
 	}
@@ -77,8 +73,7 @@ asn1_ascend(asn1_parser_t *parser, uint8_t levels)
 }
 
 bool
-asn1_descend(asn1_parser_t *parser)
-{
+asn1_descend(asn1_parser_t *parser) {
 	if (parser->constraint >= NUM(parser->parents) - 1) {
 		return set_error(parser, ASININE_ERROR_INVALID);
 	}
@@ -89,9 +84,8 @@ asn1_descend(asn1_parser_t *parser)
 }
 
 void
-asn1_skip_unsafe(asn1_parser_t *parser)
-{
-	const asn1_token_t* const token = &parser->token;
+asn1_skip_unsafe(asn1_parser_t *parser) {
+	const asn1_token_t *const token = &parser->token;
 
 	if (token->type.encoding == ASN1_ENCODING_CONSTRUCTED) {
 		parser->current = token->data + token->length;
@@ -101,27 +95,23 @@ asn1_skip_unsafe(asn1_parser_t *parser)
 }
 
 bool
-asn1_eot(asn1_parser_t* parser)
-{
+asn1_eot(asn1_parser_t *parser) {
 	return parser->depth < parser->constraint;
 }
 
 ASININE_API bool
-asn1_valid(const asn1_parser_t* parser)
-{
+asn1_valid(const asn1_parser_t *parser) {
 	return (parser->depth == 0) && (parser->current == parser->parents[0]) &&
 	       (parser->last_error == ASININE_OK);
 }
 
 ASININE_API asinine_err_t
-asn1_get_error(const asn1_parser_t* parser)
-{
+asn1_get_error(const asn1_parser_t *parser) {
 	return parser->last_error;
 }
 
 static inline bool
-advance_pos(asn1_parser_t* parser, size_t num)
-{
+advance_pos(asn1_parser_t *parser, size_t num) {
 	parser->current += num;
 	if (parser->current >= parser->parents[parser->depth]) {
 		return set_error(parser, ASININE_ERROR_MALFORMED);
@@ -131,9 +121,8 @@ advance_pos(asn1_parser_t* parser, size_t num)
 }
 
 bool
-asn1_next(asn1_parser_t *parser)
-{
-	asn1_token_t* const token = &parser->token;
+asn1_next(asn1_parser_t *parser) {
+	asn1_token_t *const token = &parser->token;
 
 	if (parser->last_error != ASININE_OK) {
 		return false;
@@ -158,7 +147,7 @@ asn1_next(asn1_parser_t *parser)
 		size_t bits;
 
 		// 8.1.2.4.2
-		bits = 0;
+		bits            = 0;
 		token->type.tag = 0;
 
 		do {
@@ -210,7 +199,7 @@ asn1_next(asn1_parser_t *parser)
 		}
 
 		// 10.1
-		if (token->length < CONTENT_LENGTH_LONG_MIN){
+		if (token->length < CONTENT_LENGTH_LONG_MIN) {
 			return set_error(parser, ASININE_ERROR_MALFORMED);
 		}
 	} else {

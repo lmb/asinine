@@ -2,24 +2,23 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include <stdio.h>
 #include <stdarg.h>
+#include <stdio.h>
 #include <string.h>
 
 #include "asinine/asn1.h"
 
-#define MIN(a,b) (((a) < (b)) ? a : b)
-#define NUM(x) (sizeof x / sizeof (x)[0])
+#define MIN(a, b) (((a) < (b)) ? a : b)
+#define NUM(x) (sizeof x / sizeof(x)[0])
 
 #define OID_MINIMUM_ARCS 2
 
-#define OID_CONTINUATION_MASK (1<<7)
-#define OID_VALUE_MASK ((1<<7)-1)
+#define OID_CONTINUATION_MASK (1 << 7)
+#define OID_VALUE_MASK ((1 << 7) - 1)
 #define OID_VALUE_BITS_PER_BYTE 7
 
 static int
-append_arc(asn1_oid_t *oid, asn1_oid_arc_t arc)
-{
+append_arc(asn1_oid_t *oid, asn1_oid_arc_t arc) {
 	if (oid->num >= ASN1_OID_MAXIMUM_DEPTH) {
 		return 0;
 	}
@@ -30,8 +29,7 @@ append_arc(asn1_oid_t *oid, asn1_oid_arc_t arc)
 
 // 8.19
 asinine_err_t
-asn1_oid(const asn1_token_t *token, asn1_oid_t *oid)
-{
+asn1_oid(const asn1_token_t *token, asn1_oid_t *oid) {
 	asn1_oid_arc_t arc;
 	bool is_first_arc;
 	size_t arc_bits;
@@ -51,8 +49,8 @@ asn1_oid(const asn1_token_t *token, asn1_oid_t *oid)
 		return ASININE_ERROR_MALFORMED;
 	}
 
-	arc = 0;
-	arc_bits = 0;
+	arc          = 0;
+	arc_bits     = 0;
 	is_first_arc = 1;
 
 	for (data = token->data; data < token->data + token->length; data++) {
@@ -60,7 +58,7 @@ asn1_oid(const asn1_token_t *token, asn1_oid_t *oid)
 			// 8.19.2 "the leading octet of the subidentifier shall not have the
 			// value 0x80"
 			return ASININE_ERROR_MALFORMED;
-		} 
+		}
 
 		arc = (arc << OID_VALUE_BITS_PER_BYTE) | (*data & OID_VALUE_MASK);
 		arc_bits += OID_VALUE_BITS_PER_BYTE;
@@ -80,7 +78,7 @@ asn1_oid(const asn1_token_t *token, asn1_oid_t *oid)
 					return ASININE_ERROR_MEMORY;
 				}
 
-				arc = (arc - (x * 40));
+				arc          = (arc - (x * 40));
 				is_first_arc = 0;
 			}
 
@@ -88,7 +86,7 @@ asn1_oid(const asn1_token_t *token, asn1_oid_t *oid)
 				return ASININE_ERROR_MEMORY;
 			}
 
-			arc = 0;
+			arc      = 0;
 			arc_bits = 0;
 		}
 	}
@@ -97,8 +95,7 @@ asn1_oid(const asn1_token_t *token, asn1_oid_t *oid)
 }
 
 size_t
-asn1_oid_to_string(char *buffer, size_t num, const asn1_oid_t *oid)
-{
+asn1_oid_to_string(char *buffer, size_t num, const asn1_oid_t *oid) {
 	size_t i, written, total;
 
 	for (i = 0, total = 0; i < oid->num; ++i) {
@@ -116,17 +113,16 @@ asn1_oid_to_string(char *buffer, size_t num, const asn1_oid_t *oid)
 		total += written;
 	}
 
-	if (total > 0 && *(buffer-1) == '.') {
+	if (total > 0 && *(buffer - 1) == '.') {
 		total -= 1;
-		*(buffer-1) = '\0';
+		*(buffer - 1) = '\0';
 	}
 
 	return total;
 }
 
 bool
-asn1_oid_eq(const asn1_oid_t *oid, size_t num, ...)
-{
+asn1_oid_eq(const asn1_oid_t *oid, size_t num, ...) {
 	size_t i;
 	va_list arcs;
 
@@ -148,8 +144,7 @@ asn1_oid_eq(const asn1_oid_t *oid, size_t num, ...)
 }
 
 int
-asn1_oid_cmp(const asn1_oid_t *a, const asn1_oid_t *b)
-{
+asn1_oid_cmp(const asn1_oid_t *a, const asn1_oid_t *b) {
 	size_t i;
 
 	for (i = 0; i < NUM(a->arcs); ++i) {
