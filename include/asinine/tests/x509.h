@@ -2,8 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef __ASININE_TESTS_X509_H__
-#define __ASININE_TESTS_X509_H__
+#pragma once
 
 #ifdef __cplusplus
 extern "C" {
@@ -14,5 +13,3 @@ int test_x509_all(int *tests_run);
 #ifdef __cplusplus
 }
 #endif
-
-#endif /* __ASININE_TESTS_X509_H__ */

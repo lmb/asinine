@@ -2,8 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef __ASININE_MACROS_H__
-#define __ASININE_MACROS_H__
+#pragma once
 
 /* This is from comp.std.c
  * (https://groups.google.com/forum/#!topic/comp.std.c/d-6Mj5Lko_s)
@@ -32,5 +31,3 @@
 #else
 #define ASININE_API
 #endif
-
-#endif /* __ASININE_MACROS_H__ */

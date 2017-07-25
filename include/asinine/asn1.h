@@ -2,8 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef __ASININE_ASN1_H__
-#define __ASININE_ASN1_H__
+#pragma once
 
 #ifdef __cplusplus
 extern "C" {
@@ -199,5 +198,3 @@ ASININE_API int asn1_oid_cmp(const asn1_oid_t *a, const asn1_oid_t *b);
 #ifdef __cplusplus
 }
 #endif
-
-#endif /* __ASININE_ASN1_H__ */
