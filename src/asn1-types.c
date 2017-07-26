@@ -395,7 +395,7 @@ asn1_null(const asn1_token_t *token) {
 }
 
 const char *
-asinine_err_to_string(asinine_err_t err) {
+asinine_strerror(asinine_err_t err) {
 #define case_for_tag(x) \
 	case x: \
 		return #x

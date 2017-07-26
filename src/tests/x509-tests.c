@@ -22,7 +22,7 @@ test_x509_certs(void) {
 		asinine_err_t result = x509_parse(&cert, data, length);
 
 		if (result != ASININE_OK) {
-			const char *error = asinine_err_to_string(result);
+			const char *error = asinine_strerror(result);
 
 			printf("> %s (#%lu): %s\n", host, i, error);
 			errors = true;

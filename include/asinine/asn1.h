@@ -109,7 +109,7 @@ typedef struct asn1_parser {
 	asn1_token_t token;
 } asn1_parser_t;
 
-ASININE_API const char *asinine_err_to_string(asinine_err_t err);
+ASININE_API const char *asinine_strerror(asinine_err_t err);
 
 /* Parser */
 ASININE_API void asn1_init(
