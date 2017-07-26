@@ -43,20 +43,12 @@ update_depth(asn1_parser_t *parser) {
 	}
 }
 
-static inline bool
-set_error(asn1_parser_t *parser, asinine_err_t error) {
-	parser->last_error = error;
-	return false;
-}
-
 void
 asn1_init(asn1_parser_t *parser, const uint8_t *data, size_t length) {
 	assert(parser != NULL);
 	assert(data != NULL);
 
-	*parser = (asn1_parser_t){0};
-
-	parser->last_error = ASININE_OK;
+	*parser            = (asn1_parser_t){0};
 	parser->current    = data;
 	parser->parents[0] = data + length;
 }
@@ -64,7 +56,7 @@ asn1_init(asn1_parser_t *parser, const uint8_t *data, size_t length) {
 bool
 asn1_ascend(asn1_parser_t *parser, uint8_t levels) {
 	if (levels > parser->constraint) {
-		return set_error(parser, ASININE_ERROR_INVALID);
+		return ASININE_ERROR_INVALID;
 	}
 
 	parser->constraint -= levels;
@@ -75,7 +67,7 @@ asn1_ascend(asn1_parser_t *parser, uint8_t levels) {
 bool
 asn1_descend(asn1_parser_t *parser) {
 	if (parser->constraint >= NUM(parser->parents) - 1) {
-		return set_error(parser, ASININE_ERROR_INVALID);
+		return ASININE_ERROR_INVALID;
 	}
 
 	parser->constraint += 1;
@@ -101,39 +93,29 @@ asn1_eot(asn1_parser_t *parser) {
 
 ASININE_API bool
 asn1_valid(const asn1_parser_t *parser) {
-	return (parser->depth == 0) && (parser->current == parser->parents[0]) &&
-	       (parser->last_error == ASININE_OK);
-}
-
-ASININE_API asinine_err_t
-asn1_get_error(const asn1_parser_t *parser) {
-	return parser->last_error;
+	return (parser->depth == 0) && (parser->current == parser->parents[0]);
 }
 
 static inline bool
 advance_pos(asn1_parser_t *parser, size_t num) {
 	parser->current += num;
 	if (parser->current >= parser->parents[parser->depth]) {
-		return set_error(parser, ASININE_ERROR_MALFORMED);
+		return ASININE_ERROR_MALFORMED;
 	}
 
 	return true;
 }
 
-bool
+asinine_err_t
 asn1_next(asn1_parser_t *parser) {
 	asn1_token_t *const token = &parser->token;
 
-	if (parser->last_error != ASININE_OK) {
-		return false;
-	}
-
 	if (parser->current >= parser->parents[parser->depth]) {
-		return set_error(parser, ASININE_ERROR_MALFORMED);
+		return ASININE_ERROR_MALFORMED;
 	}
 
 	if (parser->constraint != parser->depth) {
-		return set_error(parser, ASININE_ERROR_INVALID);
+		return ASININE_ERROR_INVALID;
 	}
 
 	*token = (asn1_token_t){0};
@@ -161,7 +143,7 @@ asn1_next(asn1_parser_t *parser) {
 			// TODO: Could this overflow bits?
 			bits += MULTIPART_TAG_BITS_PER_BYTE;
 			if (bits > sizeof token->type.tag * 8) {
-				return set_error(parser, ASININE_ERROR_MEMORY);
+				return ASININE_ERROR_MEMORY;
 			}
 		} while (*parser->current & MULTIPART_TAG_CONTINUATION);
 	}
@@ -177,12 +159,12 @@ asn1_next(asn1_parser_t *parser) {
 		num_bytes = *parser->current & CONTENT_LENGTH_MASK;
 
 		if (num_bytes == CONTENT_LENGTH_LONG_RESERVED) {
-			return set_error(parser, ASININE_ERROR_MALFORMED);
+			return ASININE_ERROR_MALFORMED;
 		} else if (num_bytes == 0) {
 			// Indefinite form is forbidden (X.690 11/2008 8.1.3.6)
-			return set_error(parser, ASININE_ERROR_MALFORMED);
+			return ASININE_ERROR_MALFORMED;
 		} else if (num_bytes > sizeof token->length) {
-			return set_error(parser, ASININE_ERROR_UNSUPPORTED);
+			return ASININE_ERROR_UNSUPPORTED;
 		}
 
 		token->length = 0;
@@ -192,7 +174,7 @@ asn1_next(asn1_parser_t *parser) {
 			}
 
 			if (token->length == 0 && *parser->current == 0) {
-				return set_error(parser, ASININE_ERROR_MALFORMED);
+				return ASININE_ERROR_MALFORMED;
 			}
 
 			token->length = (token->length << 8) | *parser->current;
@@ -200,7 +182,7 @@ asn1_next(asn1_parser_t *parser) {
 
 		// 10.1
 		if (token->length < CONTENT_LENGTH_LONG_MIN) {
-			return set_error(parser, ASININE_ERROR_MALFORMED);
+			return ASININE_ERROR_MALFORMED;
 		}
 	} else {
 		token->length = *parser->current & CONTENT_LENGTH_MASK;
@@ -211,7 +193,7 @@ asn1_next(asn1_parser_t *parser) {
 		token->data = parser->current + 1;
 
 		if (parser->current + token->length > parser->parents[parser->depth]) {
-			return set_error(parser, ASININE_ERROR_MALFORMED);
+			return ASININE_ERROR_MALFORMED;
 		}
 
 		if (token->type.encoding == ASN1_ENCODING_PRIMITIVE) {
@@ -219,7 +201,7 @@ asn1_next(asn1_parser_t *parser) {
 			parser->current += token->length;
 		} else {
 			if (parser->depth >= NUM(parser->parents) - 1) {
-				return set_error(parser, ASININE_ERROR_UNSUPPORTED);
+				return ASININE_ERROR_UNSUPPORTED;
 			}
 
 			parser->depth++;
@@ -233,5 +215,5 @@ asn1_next(asn1_parser_t *parser) {
 	parser->current++;
 	update_depth(parser);
 
-	return true;
+	return ASININE_OK;
 }

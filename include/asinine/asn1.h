@@ -102,7 +102,6 @@ typedef struct asn1_token {
 } asn1_token_t;
 
 typedef struct asn1_parser {
-	asinine_err_t last_error;
 	const uint8_t *current;
 	const uint8_t *parents[ASN1_MAXIMUM_DEPTH];
 	uint8_t depth;
@@ -116,8 +115,7 @@ ASININE_API const char *asinine_err_to_string(asinine_err_t err);
 ASININE_API void asn1_init(
     asn1_parser_t *parser, const uint8_t *data, size_t length);
 
-ASININE_API bool asn1_next(asn1_parser_t *parser);
-ASININE_API asinine_err_t asn1_get_error(const asn1_parser_t *parser);
+ASININE_API asinine_err_t asn1_next(asn1_parser_t *parser);
 
 /**
  * Skip to the end of the current token

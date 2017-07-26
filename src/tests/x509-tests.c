@@ -36,7 +36,7 @@ int
 test_x509_all(int *tests_run) {
 	declare_set;
 
-	printf("sizeof x509_cert_t: %lu\n", sizeof(x509_cert_t));
+	printf("sizeof x509_cert_t: %zu\n", sizeof(x509_cert_t));
 
 	run_test(test_x509_certs);
 

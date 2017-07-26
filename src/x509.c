@@ -64,8 +64,7 @@ static asinine_err_t parse_null_args(asn1_parser_t *, x509_cert_t *);
 static asinine_err_t parse_signature_info(asn1_parser_t *, x509_cert_t *);
 static asinine_err_t parse_validity(asn1_parser_t *, x509_cert_t *);
 
-static asinine_err_t parse_extn_key_usage(
-    x509_cert_t *, const asn1_token_t *);
+static asinine_err_t parse_extn_key_usage(x509_cert_t *, const asn1_token_t *);
 static asinine_err_t parse_extn_ext_key_usage(
     x509_cert_t *, const asn1_token_t *);
 static asinine_err_t parse_extn_basic_constraints(
@@ -95,8 +94,9 @@ static const extension_lookup_t extensions[] = {
 	} while (0)
 #define NEXT_TOKEN(parser) \
 	do { \
-		if (!asn1_next(parser)) { \
-			return ASININE_ERROR_INVALID; \
+		asinine_err_t err_##__LINE__; \
+		if ((err_##__LINE__ = asn1_next(parser)) != ASININE_OK) { \
+			return err_##__LINE__; \
 		} \
 	} while (0)
 #define NEXT_CHILD(parser) \
@@ -104,8 +104,9 @@ static const extension_lookup_t extensions[] = {
 		if (asn1_eot(parser)) { \
 			return ASININE_OK; \
 		} \
-		if (!asn1_next(parser)) { \
-			return asn1_get_error(parser); \
+		asinine_err_t err_##__LINE__; \
+		if ((err_##__LINE__ = asn1_next(parser)) != ASININE_OK) { \
+			return err_##__LINE__; \
 		} \
 	} while (0)
 
@@ -277,8 +278,7 @@ parse_optional(asn1_parser_t *parser, x509_cert_t *cert) {
 			return ASININE_ERROR_INVALID;
 		}
 
-		if (!asn1_is(
-		        token, ASN1_CLASS_CONTEXT, 3, ASN1_ENCODING_CONSTRUCTED)) {
+		if (!asn1_is(token, ASN1_CLASS_CONTEXT, 3, ASN1_ENCODING_CONSTRUCTED)) {
 			return ASININE_ERROR_INVALID;
 		}
 
@@ -473,13 +473,13 @@ parse_extn_key_usage(x509_cert_t *cert, const asn1_token_t *extension) {
 	/* RFC 5280, p.30: "When the keyUsage extension appears in a certificate, at
 	 * least one of the bits MUST be set to 1."
 	 */
-	return (asn1_valid(&parser) && cert->key_usage != 0) ? ASININE_OK
-	                                                      : ASININE_ERROR_INVALID;
+	return (asn1_valid(&parser) && cert->key_usage != 0)
+	           ? ASININE_OK
+	           : ASININE_ERROR_INVALID;
 }
 
 static asinine_err_t
-parse_extn_ext_key_usage(
-    x509_cert_t *cert, const asn1_token_t *extension) {
+parse_extn_ext_key_usage(x509_cert_t *cert, const asn1_token_t *extension) {
 	asn1_parser_t parser;
 
 	asn1_init(&parser, extension->data, extension->length);
@@ -532,8 +532,7 @@ parse_extn_ext_key_usage(
 }
 
 static asinine_err_t
-parse_extn_basic_constraints(
-    x509_cert_t *cert, const asn1_token_t *extension) {
+parse_extn_basic_constraints(x509_cert_t *cert, const asn1_token_t *extension) {
 	asn1_parser_t parser;
 	int value;
 
