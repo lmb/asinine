@@ -114,7 +114,7 @@ x509_parse(x509_cert_t *cert, const uint8_t *data, size_t num) {
 	asn1_token_t signature;
 	asn1_parser_t parser;
 
-	memset(cert, 0, sizeof(*cert));
+	*cert = (x509_cert_t){0};
 
 	asn1_init(&parser, data, num);
 

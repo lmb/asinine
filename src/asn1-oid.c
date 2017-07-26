@@ -36,7 +36,7 @@ asn1_oid(const asn1_token_t *token, asn1_oid_t *oid) {
 	const uint8_t *data;
 
 	// Zero every OID so that asn1_oid_cmp works
-	memset(oid, 0, sizeof(*oid));
+	*oid = (asn1_oid_t){0};
 
 	if (token->data == NULL || token->length == 0) {
 		return ASININE_ERROR_MALFORMED;

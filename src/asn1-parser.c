@@ -54,7 +54,7 @@ asn1_init(asn1_parser_t *parser, const uint8_t *data, size_t length) {
 	assert(parser != NULL);
 	assert(data != NULL);
 
-	memset(parser, 0, sizeof *parser);
+	*parser = (asn1_parser_t){0};
 
 	parser->last_error = ASININE_OK;
 	parser->current    = data;
@@ -136,7 +136,7 @@ asn1_next(asn1_parser_t *parser) {
 		return set_error(parser, ASININE_ERROR_INVALID);
 	}
 
-	memset(token, 0, sizeof *token);
+	*token = (asn1_token_t){0};
 
 	// Type (8.1.2)
 	token->type.class    = TYPE_CLASS(*parser->current);
