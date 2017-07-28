@@ -103,9 +103,9 @@ typedef struct asn1_token {
 
 typedef struct asn1_parser {
 	const uint8_t *current;
-	const uint8_t *parents[ASN1_MAXIMUM_DEPTH];
+	const uint8_t *end;
+	const uint8_t *stack[ASN1_MAXIMUM_DEPTH];
 	uint8_t depth;
-	uint8_t constraint;
 	asn1_token_t token;
 } asn1_parser_t;
 
@@ -116,6 +116,9 @@ ASININE_API void asn1_init(
     asn1_parser_t *parser, const uint8_t *data, size_t length);
 
 ASININE_API asinine_err_t asn1_next(asn1_parser_t *parser);
+ASININE_API asinine_err_t asn1_push(asn1_parser_t *parser);
+ASININE_API asinine_err_t asn1_force_push(asn1_parser_t *parser);
+ASININE_API asinine_err_t asn1_pop(asn1_parser_t *parser);
 
 /**
  * Skip to the end of the current token
@@ -125,10 +128,8 @@ ASININE_API asinine_err_t asn1_next(asn1_parser_t *parser);
  *         on a full parse.
  */
 ASININE_API void asn1_skip_unsafe(asn1_parser_t *parser);
-ASININE_API bool asn1_eot(asn1_parser_t *parser);
-ASININE_API bool asn1_ascend(asn1_parser_t *parser, uint8_t levels);
-ASININE_API bool asn1_descend(asn1_parser_t *parser);
-ASININE_API bool asn1_valid(const asn1_parser_t *parser);
+ASININE_API bool asn1_eof(const asn1_parser_t *parser);
+ASININE_API bool asn1_end(const asn1_parser_t *parser);
 
 /* Types */
 ASININE_API asinine_err_t asn1_string(

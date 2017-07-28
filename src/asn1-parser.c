@@ -33,76 +33,38 @@
 
 #define NUM(x) (sizeof x / sizeof *(x))
 
-static void
-update_depth(asn1_parser_t *parser) {
-	// Check whether we're at the end of the parent token. If so, we ascend one
-	// level and update the depth.
-	while (parser->current == parser->parents[parser->depth] &&
-	       parser->depth > 0) {
-		parser->depth--;
-	}
-}
-
 void
 asn1_init(asn1_parser_t *parser, const uint8_t *data, size_t length) {
 	assert(parser != NULL);
 	assert(data != NULL);
 
-	*parser            = (asn1_parser_t){0};
-	parser->current    = data;
-	parser->parents[0] = data + length;
-}
-
-bool
-asn1_ascend(asn1_parser_t *parser, uint8_t levels) {
-	if (levels > parser->constraint) {
-		return ASININE_ERROR_INVALID;
-	}
-
-	parser->constraint -= levels;
-
-	return true;
-}
-
-bool
-asn1_descend(asn1_parser_t *parser) {
-	if (parser->constraint >= NUM(parser->parents) - 1) {
-		return ASININE_ERROR_INVALID;
-	}
-
-	parser->constraint += 1;
-
-	return true;
+	*parser         = (asn1_parser_t){0};
+	parser->current = data;
+	parser->end     = data + length;
 }
 
 void
 asn1_skip_unsafe(asn1_parser_t *parser) {
-	const asn1_token_t *const token = &parser->token;
-
-	if (token->type.encoding == ASN1_ENCODING_CONSTRUCTED) {
-		parser->current = token->data + token->length;
-
-		update_depth(parser);
-	}
+	parser->current = parser->end;
 }
 
 bool
-asn1_eot(asn1_parser_t *parser) {
-	return parser->depth < parser->constraint;
+asn1_eof(const asn1_parser_t *parser) {
+	return parser->current == parser->end;
 }
 
-ASININE_API bool
-asn1_valid(const asn1_parser_t *parser) {
-	return (parser->depth == 0) && (parser->current == parser->parents[0]);
+bool
+asn1_end(const asn1_parser_t *parser) {
+	return asn1_eof(parser) && parser->depth == 0;
 }
 
 static inline bool
 advance_pos(asn1_parser_t *parser, size_t num) {
-	parser->current += num;
-	if (parser->current >= parser->parents[parser->depth]) {
-		return ASININE_ERROR_MALFORMED;
+	if (parser->current + num >= parser->end) {
+		return false;
 	}
 
+	parser->current += num;
 	return true;
 }
 
@@ -110,12 +72,8 @@ asinine_err_t
 asn1_next(asn1_parser_t *parser) {
 	asn1_token_t *const token = &parser->token;
 
-	if (parser->current >= parser->parents[parser->depth]) {
+	if (parser->current >= parser->end) {
 		return ASININE_ERROR_MALFORMED;
-	}
-
-	if (parser->constraint != parser->depth) {
-		return ASININE_ERROR_INVALID;
 	}
 
 	*token = (asn1_token_t){0};
@@ -188,24 +146,12 @@ asn1_next(asn1_parser_t *parser) {
 		token->length = *parser->current & CONTENT_LENGTH_MASK;
 	}
 
-	// Contents
+	// Content and overflow check
 	if (token->length > 0) {
 		token->data = parser->current + 1;
 
-		if (parser->current + token->length > parser->parents[parser->depth]) {
+		if (!advance_pos(parser, token->length)) {
 			return ASININE_ERROR_MALFORMED;
-		}
-
-		if (token->type.encoding == ASN1_ENCODING_PRIMITIVE) {
-			// Jump to last valid byte, not past
-			parser->current += token->length;
-		} else {
-			if (parser->depth >= NUM(parser->parents) - 1) {
-				return ASININE_ERROR_UNSUPPORTED;
-			}
-
-			parser->depth++;
-			parser->parents[parser->depth] = token->data + token->length;
 		}
 	}
 
@@ -213,7 +159,56 @@ asn1_next(asn1_parser_t *parser) {
 	// The error condition for this is checked on the next call of this
 	// function.
 	parser->current++;
-	update_depth(parser);
+	return ASININE_OK;
+}
 
+asinine_err_t
+asn1_push(asn1_parser_t *parser) {
+	if (parser->token.type.encoding != ASN1_ENCODING_CONSTRUCTED) {
+		return ASININE_ERROR_INVALID;
+	}
+
+	return asn1_force_push(parser);
+}
+
+asinine_err_t
+asn1_force_push(asn1_parser_t *parser) {
+	const asn1_token_t *token = &parser->token;
+
+	if (parser->depth + 1 >= NUM(parser->stack)) {
+		return ASININE_ERROR_UNSUPPORTED;
+	}
+
+	parser->stack[parser->depth] = parser->end;
+	parser->depth++;
+
+	if (token->data == NULL) {
+		// Empty tokens are valid, we just have to make sure that eof returns
+		// true for them.
+		parser->end = parser->current;
+	} else {
+		// We've already skipped to the end of the token, so reset the current
+		// position to the start of the token's data.
+		parser->current = token->data;
+		parser->end     = token->data + token->length;
+	}
+
+	return ASININE_OK;
+}
+
+asinine_err_t
+asn1_pop(asn1_parser_t *parser) {
+	if (parser->depth == 0) {
+		return ASININE_ERROR_INVALID;
+	}
+
+	// Don't pop tokens which havent been fully parsed
+	if (!asn1_eof(parser)) {
+		return ASININE_ERROR_MALFORMED;
+	}
+
+	parser->depth--;
+	parser->end                  = parser->stack[parser->depth];
+	parser->stack[parser->depth] = NULL;
 	return ASININE_OK;
 }

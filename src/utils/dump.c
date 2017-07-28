@@ -59,28 +59,9 @@ hexdump(const asn1_token_t *token, int depth) {
 	}
 }
 
-static bool
-dump_token(asn1_parser_t *parser, int depth) {
-	const asn1_token_t *const token = &parser->token;
-
-	if (!asn1_next(parser)) {
-		printf("Could not parse token\n");
-		return false;
-	}
-
-	prelude(token, depth);
-
-	if (token->type.encoding == ASN1_ENCODING_CONSTRUCTED) {
-		printf("\n");
-
-		asn1_descend(parser);
-		while (!asn1_eot(parser)) {
-			if (!dump_token(parser, depth + 1)) {
-				return false;
-			}
-		}
-		asn1_ascend(parser, 1);
-	} else if (token->type.class == ASN1_CLASS_UNIVERSAL) {
+static void
+dump_token(const asn1_token_t *token, uint8_t depth) {
+	if (token->type.class == ASN1_CLASS_UNIVERSAL) {
 		char buf[256];
 
 		switch ((asn1_tag_t)token->type.tag) {
@@ -173,6 +154,38 @@ dump_token(asn1_parser_t *parser, int depth) {
 		printf("\n");
 		hexdump(token, depth);
 	}
+}
+
+static bool
+dump_tokens(asn1_parser_t *parser) {
+	const asn1_token_t *const token = &parser->token;
+
+	while (!asn1_eof(parser)) {
+		if (asn1_next(parser) != ASININE_OK) {
+			fprintf(stderr, "Could not parse token\n");
+			return false;
+		}
+
+		prelude(token, parser->depth);
+
+		if (token->type.encoding == ASN1_ENCODING_CONSTRUCTED) {
+			printf("\n");
+
+			if (asn1_push(parser) != ASININE_OK) {
+				return false;
+			}
+
+			if (!dump_tokens(parser)) {
+				return false;
+			}
+
+			if (asn1_pop(parser) != ASININE_OK) {
+				return false;
+			}
+		} else {
+			dump_token(token, parser->depth);
+		}
+	}
 
 	return true;
 }
@@ -181,7 +194,6 @@ static const uint8_t *load(const char *filename, size_t *length);
 
 int
 main(int argc, const char *argv[]) {
-	asn1_parser_t parser;
 	const uint8_t *contents;
 	size_t length;
 
@@ -196,10 +208,16 @@ main(int argc, const char *argv[]) {
 		return 1;
 	}
 
+	asn1_parser_t parser;
 	asn1_init(&parser, contents, length);
 
-	if (!dump_token(&parser, 0)) {
-		return 1;
+	if (!dump_tokens(&parser)) {
+		return 2;
+	}
+
+	if (!asn1_end(&parser)) {
+		fprintf(stderr, "Did not parse full file\n");
+		return 3;
 	}
 
 	return 0;

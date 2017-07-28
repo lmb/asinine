@@ -19,6 +19,8 @@
 	check_msg(expr, __FILE__ ":" __test_line_no(__LINE__) ": " msg_)
 
 #define check(expr) check_loc(expr, #expr)
+#define check_OK(expr) check(expr == ASININE_OK)
+#define check_ERROR(expr) check(expr != ASININE_OK)
 
 #define declare_set int failed_tests = 0;
 #define end_set return failed_tests;

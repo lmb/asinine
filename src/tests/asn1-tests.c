@@ -56,20 +56,20 @@ test_asn1_oid_decode(void) {
 	asn1_oid_t oid;
 
 	asn1_init(&parser, raw, sizeof(raw));
-	check(asn1_next(&parser) == ASININE_OK);
 
-	check(asn1_descend(&parser));
+	check_OK(asn1_next(&parser));
+	check_OK(asn1_push(&parser));
 
-	check(asn1_next(&parser) == ASININE_OK);
-	check(asn1_oid(&parser.token, &oid) == ASININE_OK);
+	check_OK(asn1_next(&parser));
+	check_OK(asn1_oid(&parser.token, &oid));
 	check(asn1_oid_eq(&oid, TEST_OID1));
 
-	check(asn1_next(&parser) == ASININE_OK);
-	check(asn1_oid(&parser.token, &oid) == ASININE_OK);
+	check_OK(asn1_next(&parser));
+	check_OK(asn1_oid(&parser.token, &oid));
 	check(asn1_oid_eq(&oid, TEST_OID2));
 
-	check(asn1_ascend(&parser, 1));
-	check(asn1_valid(&parser));
+	check_OK(asn1_pop(&parser));
+	check(asn1_eof(&parser));
 
 	return 0;
 }
@@ -85,23 +85,23 @@ test_asn1_oid_decode_invalid(void) {
 
 	asn1_init(&parser, invalid_padding, sizeof(invalid_padding));
 
-	check(asn1_next(&parser) == ASININE_OK);
-	check(asn1_descend(&parser));
+	check_OK(asn1_next(&parser));
+	check_OK(asn1_push(&parser));
 
-	check(asn1_next(&parser) == ASININE_OK);
+	check_OK(asn1_next(&parser));
 	check(asn1_oid(&parser.token, &oid) == ASININE_ERROR_MALFORMED);
 
-	check(asn1_next(&parser) == ASININE_OK);
+	check_OK(asn1_next(&parser));
 	check(asn1_oid(&parser.token, &oid) == ASININE_ERROR_MALFORMED);
 
-	check(asn1_next(&parser) == ASININE_OK);
+	check_OK(asn1_next(&parser));
 	check(asn1_oid(&parser.token, &oid) == ASININE_ERROR_MALFORMED);
 
-	check(asn1_next(&parser) == ASININE_OK);
+	check_OK(asn1_next(&parser));
 	check(asn1_oid(&parser.token, &oid) == ASININE_ERROR_MALFORMED);
 
-	check(asn1_ascend(&parser, 1));
-	check(asn1_valid(&parser));
+	check_OK(asn1_pop(&parser));
+	check(asn1_eof(&parser));
 
 	return 0;
 }
@@ -149,11 +149,11 @@ test_asn1_bitstring_decode(void) {
 
 	uint8_t buf[2];
 
-	check(asn1_bitstring(&token1, buf, sizeof buf) == ASININE_OK);
+	check_OK(asn1_bitstring(&token1, buf, sizeof buf));
 	check(buf[0] == 0x55);
 	check(buf[1] == 0x0f);
 
-	check(asn1_bitstring(&token2, buf, sizeof buf) == ASININE_OK);
+	check_OK(asn1_bitstring(&token2, buf, sizeof buf));
 	check(buf[0] == 0);
 	check(buf[1] == 0);
 
@@ -215,90 +215,91 @@ test_asn1_parse(void) {
 	asn1_init(&parser, raw, sizeof(raw));
 
 	// 0
-	check(asn1_next(&parser) == ASININE_OK);
+	check_OK(asn1_next(&parser));
 	check(asn1_is_sequence(&parser.token));
-	check(asn1_descend(&parser));
+	check_OK(asn1_push(&parser));
 
 	// 1
-	check(asn1_next(&parser) == ASININE_OK);
+	check_OK(asn1_next(&parser));
 	check(asn1_is_sequence(&parser.token));
-	check(asn1_descend(&parser));
+	check_OK(asn1_push(&parser));
 
 	// 2
-	check(asn1_next(&parser) == ASININE_OK);
+	check_OK(asn1_next(&parser));
 	check(asn1_is_int(&parser.token));
-	check(asn1_int(&parser.token, &value) == ASININE_OK);
+	check_OK(asn1_int(&parser.token, &value));
 	check(value == 0x01);
 
 	// 3
-	check(asn1_next(&parser) == ASININE_OK);
+	check_OK(asn1_next(&parser));
 	check(asn1_is_int(&parser.token));
-	check(asn1_int(&parser.token, &value) == ASININE_OK);
+	check_OK(asn1_int(&parser.token, &value));
 	check(value == 0x02);
 
-	check(asn1_ascend(&parser, 1));
+	check_OK(asn1_pop(&parser));
 
 	// 4
-	check(asn1_next(&parser) == ASININE_OK);
+	check_OK(asn1_next(&parser));
 	check(asn1_is_int(&parser.token));
-	check(asn1_int(&parser.token, &value) == ASININE_OK);
+	check_OK(asn1_int(&parser.token, &value));
 	check(value == -1);
 
 	// 5
-	check(asn1_next(&parser) == ASININE_OK);
+	check_OK(asn1_next(&parser));
 	check(asn1_is_sequence(&parser.token));
-	check(asn1_descend(&parser));
+	check_OK(asn1_push(&parser));
 
 	// 6
-	check(asn1_next(&parser) == ASININE_OK);
+	check_OK(asn1_next(&parser));
 	check(asn1_is_int(&parser.token));
-	check(asn1_int(&parser.token, &value) == ASININE_OK);
+	check_OK(asn1_int(&parser.token, &value));
 	check(value == 0x11);
 
-	check(asn1_ascend(&parser, 1));
+	check_OK(asn1_pop(&parser));
 
 	// 7
-	check(asn1_next(&parser) == ASININE_OK);
+	check_OK(asn1_next(&parser));
 	check(asn1_is_sequence(&parser.token));
-	check(asn1_descend(&parser));
+	check_OK(asn1_push(&parser));
 
 	// 8
-	check(asn1_next(&parser) == ASININE_OK);
+	check_OK(asn1_next(&parser));
 	check(asn1_is_int(&parser.token));
-	check(asn1_int(&parser.token, &value) == ASININE_OK);
+	check_OK(asn1_int(&parser.token, &value));
 	check(value == 0x01);
 
 	// 9
-	check(asn1_next(&parser) == ASININE_OK);
+	check_OK(asn1_next(&parser));
 	check(asn1_is_sequence(&parser.token));
-	check(asn1_descend(&parser));
+	check_OK(asn1_push(&parser));
 
 	// 10
-	check(asn1_next(&parser) == ASININE_OK);
+	check_OK(asn1_next(&parser));
 	check(asn1_is_sequence(&parser.token));
-	check(asn1_descend(&parser));
+	check_OK(asn1_push(&parser));
 
 	// 11
-	check(asn1_next(&parser) == ASININE_OK);
+	check_OK(asn1_next(&parser));
 	check(asn1_is_int(&parser.token));
-	check(asn1_int(&parser.token, &value) == ASININE_OK);
+	check_OK(asn1_int(&parser.token, &value));
 	check(value == 0x02);
 
-	check(asn1_ascend(&parser, 1));
+	check_OK(asn1_pop(&parser));
 
 	// 12
-	check(asn1_next(&parser) == ASININE_OK);
+	check_OK(asn1_next(&parser));
 	check(asn1_is_int(&parser.token));
-	check(asn1_int(&parser.token, &value) == ASININE_OK);
+	check_OK(asn1_int(&parser.token, &value));
 	check(value == 0x03);
 
-	check(asn1_ascend(&parser, 2));
+	check_OK(asn1_pop(&parser));
+	check_OK(asn1_pop(&parser));
 
 	// 13
-	check(asn1_next(&parser) == ASININE_OK);
+	check_OK(asn1_next(&parser));
 	check(asn1_is_sequence(&parser.token));
 
-	check(asn1_valid(&parser));
+	check(asn1_eof(&parser));
 
 	return 0;
 }
@@ -318,37 +319,37 @@ test_asn1_parse_nested(void) {
 
 	asn1_init(&parser, raw, sizeof raw);
 
-	check(asn1_next(&parser) == ASININE_OK);
-	check(asn1_descend(&parser));
-	while (!asn1_eot(&parser)) { // 1
-		check(asn1_next(&parser) == ASININE_OK);
-		check(asn1_descend(&parser));
-		while (!asn1_eot(&parser)) { // 2
-			check(asn1_next(&parser) == ASININE_OK);
-			check(asn1_int(&parser.token, &value) == ASININE_OK);
+	check_OK(asn1_next(&parser));
+	check_OK(asn1_push(&parser));
+	while (!asn1_eof(&parser)) { // 1
+		check_OK(asn1_next(&parser));
+		check_OK(asn1_push(&parser));
+		while (!asn1_eof(&parser)) { // 2
+			check_OK(asn1_next(&parser));
+			check_OK(asn1_int(&parser.token, &value));
 			check(value == test);
 			test++;
 
-			check(asn1_next(&parser) == ASININE_OK);
-			check(asn1_descend(&parser));
+			check_OK(asn1_next(&parser));
+			check_OK(asn1_push(&parser));
 
-			check(asn1_next(&parser) == ASININE_OK);
-			check(asn1_int(&parser.token, &value) == ASININE_OK);
+			check_OK(asn1_next(&parser));
+			check_OK(asn1_int(&parser.token, &value));
 			check(value == test);
 			test++;
 
-			check(asn1_ascend(&parser, 1));
+			check_OK(asn1_pop(&parser));
 		}
-		asn1_ascend(&parser, 1);
+		check_OK(asn1_pop(&parser));
 
-		check(asn1_next(&parser) == ASININE_OK);
-		check(asn1_int(&parser.token, &value) == ASININE_OK);
+		check_OK(asn1_next(&parser));
+		check_OK(asn1_int(&parser.token, &value));
 		check(value == test);
 		test++;
 	}
-	asn1_ascend(&parser, 1);
+	check_OK(asn1_pop(&parser));
 
-	check(asn1_valid(&parser));
+	check(asn1_eof(&parser));
 
 	return 0;
 }
@@ -361,7 +362,7 @@ test_asn1_parse_longform(void) {
 	asn1_parser_t parser;
 	asn1_init(&parser, raw, sizeof(raw));
 
-	check(asn1_next(&parser) == ASININE_OK);
+	check_OK(asn1_next(&parser));
 	check(parser.token.length == 128);
 
 	return 0;
@@ -381,16 +382,16 @@ test_asn1_parse_single(void) {
 	raw1[1 + sizeof(int)] = 0x01;
 
 	asn1_init(&parser, raw1, sizeof raw1);
-	check(asn1_next(&parser) == ASININE_OK);
+	check_OK(asn1_next(&parser));
 	check(asn1_is_int(&parser.token));
-	check(asn1_int(&parser.token, &value) == ASININE_OK);
+	check_OK(asn1_int(&parser.token, &value));
 	check(value == 1 - INT_MIN);
-	check(asn1_valid(&parser));
+	check(asn1_eof(&parser));
 
 	asn1_init(&parser, raw2, sizeof raw2);
-	check(asn1_next(&parser) == ASININE_OK);
+	check_OK(asn1_next(&parser));
 	check(asn1_is_null(&parser.token));
-	check(asn1_valid(&parser));
+	check(asn1_eof(&parser));
 
 	return 0;
 }
@@ -420,8 +421,8 @@ test_asn1_parse_invalid(void) {
 	check(asn1_next(&parser) == ASININE_ERROR_MALFORMED);
 
 	asn1_init(&parser, invalid3, sizeof(invalid3));
-	check(asn1_next(&parser) == ASININE_OK);
-	check(!asn1_valid(&parser));
+	check_OK(asn1_next(&parser));
+	check(!asn1_eof(&parser));
 
 	asn1_init(&parser, invalid4, sizeof(invalid4));
 	check(asn1_next(&parser) == ASININE_ERROR_MALFORMED);
@@ -456,16 +457,16 @@ test_asn1_parse_time(void) {
 
 	asn1_time_t time;
 
-	check(asn1_time(&epoch_token, &time) == ASININE_OK);
+	check_OK(asn1_time(&epoch_token, &time));
 	check(asn1_time_cmp(&time, &TIME(1970, 1, 1, 0, 0, 0)) == 0);
 
-	check(asn1_time(&y2k_token, &time) == ASININE_OK);
+	check_OK(asn1_time(&y2k_token, &time));
 	check(asn1_time_cmp(&time, &TIME(2000, 1, 1, 0, 0, 0)) == 0);
 
-	check(asn1_time(&leap_feb_token, &time) == ASININE_OK);
+	check_OK(asn1_time(&leap_feb_token, &time));
 	check(asn1_time_cmp(&time, &TIME(2000, 2, 29, 0, 0, 0)) == 0);
 
-	check(asn1_time(&y2k38_token, &time) == ASININE_OK);
+	check_OK(asn1_time(&y2k38_token, &time));
 	check(asn1_time_cmp(&time, &TIME(2038, 1, 19, 3, 14, 8)) == 0);
 
 	return 0;
