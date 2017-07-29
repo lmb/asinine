@@ -94,31 +94,68 @@ asn1_oid(const asn1_token_t *token, asn1_oid_t *oid) {
 	return ASININE_OK;
 }
 
-size_t
-asn1_oid_to_string(char *buffer, size_t num, const asn1_oid_t *oid) {
-	size_t i, written, total;
+static size_t
+arc_digits(asn1_oid_arc_t num) {
+	size_t digits = 1;
+	while (num / 10 > 0) {
+		digits++;
+		num /= 10;
+	}
+	return digits;
+}
 
-	for (i = 0, total = 0; i < oid->num; ++i) {
-		written = snprintf(buffer, num, "%d.", oid->arcs[i]);
+static size_t
+format_arc(char *buffer, size_t len, asn1_oid_arc_t arc) {
+	size_t digits = arc_digits(arc);
 
-		if (written == 0) {
-			break;
-		}
-
-		if (buffer != NULL) {
-			buffer += written;
-			num -= written;
-		}
-
-		total += written;
+	if (digits < len) {
+		buffer[digits] = '.';
 	}
 
-	if (total > 0 && *(buffer - 1) == '.') {
-		total -= 1;
+	for (size_t i = digits; i > 0; i--) {
+		char digit = (char)(arc % 10) + '0';
+		arc /= 10;
+		if (i - 1 < len) {
+			buffer[i - 1] = digit;
+		}
+	}
+
+	return digits + 1;
+}
+
+size_t
+asn1_oid_to_string(char *buffer, size_t len, const asn1_oid_t *oid) {
+	if (oid->num == 0) {
+		if (len > 0) {
+			buffer[0] = '\0';
+		}
+		return 0;
+	}
+
+	size_t required  = 0;
+	size_t remaining = len;
+
+	for (size_t i = 0; i < oid->num; i++) {
+		asn1_oid_arc_t arc = oid->arcs[i];
+		size_t n           = format_arc(buffer, remaining, arc);
+
+		required += n;
+
+		if (n > remaining) {
+			buffer += remaining;
+			remaining = 0;
+			continue;
+		}
+
+		buffer += n;
+		remaining -= n;
+	}
+
+	if (len > 0) {
 		*(buffer - 1) = '\0';
 	}
 
-	return total;
+	return required - 1;
 }
 
 bool

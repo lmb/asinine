@@ -109,14 +109,17 @@ test_asn1_oid_decode_invalid(void) {
 static char *
 test_asn1_oid_to_string(void) {
 	char oid_str[128];
-	const asn1_oid_t oid         = ASN1_OID(1, 2, 3);
-	const asn1_oid_t invalid_oid = ASN1_OID(1);
+	const asn1_oid_t oid   = ASN1_OID(1, 2, 123);
+	const asn1_oid_t empty = {0};
 
-	check(asn1_oid_to_string(oid_str, sizeof oid_str, &oid));
-	check(strncmp("1.2.3", oid_str, 5) == 0);
+	check(asn1_oid_to_string(oid_str, sizeof(oid_str), &oid) == 7);
+	check(strncmp("1.2.123", oid_str, sizeof(oid_str)) == 0);
 
-	check(asn1_oid_to_string(oid_str, sizeof oid_str, &invalid_oid));
-	check(strncmp("1", oid_str, 1) == 0);
+	check(asn1_oid_to_string(oid_str, 6, &oid) == 7);
+	check(strncmp("1.2.1", oid_str, sizeof(oid_str)) == 0);
+
+	check(asn1_oid_to_string(oid_str, sizeof(oid_str), &empty) == 0);
+	check(strncmp("", oid_str, sizeof(oid_str)) == 0);
 
 	return 0;
 }

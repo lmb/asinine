@@ -22,7 +22,7 @@ prelude(const asn1_token_t *token, int depth) {
 	char mark = (type->encoding == ASN1_ENCODING_PRIMITIVE) ? '-' : '*';
 	char buf[256];
 
-	asn1_to_string(buf, sizeof buf, type);
+	asn1_to_string(buf, sizeof(buf), type);
 	printf("%*s%c %s", depth * 2, "", mark, buf);
 }
 
@@ -70,7 +70,7 @@ dump_token(const asn1_token_t *token, uint8_t depth) {
 		case ASN1_TAG_UTF8STRING:
 		case ASN1_TAG_VISIBLESTRING:
 		case ASN1_TAG_PRINTABLESTRING:
-			if (asn1_string(token, buf, sizeof buf) < ASININE_OK) {
+			if (asn1_string(token, buf, sizeof(buf)) < ASININE_OK) {
 				printf(" <INVALID>\n");
 				break;
 			}
@@ -98,7 +98,7 @@ dump_token(const asn1_token_t *token, uint8_t depth) {
 				break;
 			}
 
-			if (sizeof buf <= asn1_oid_to_string(buf, sizeof buf, &oid)) {
+			if (asn1_oid_to_string(buf, sizeof(buf), &oid) >= sizeof(buf)) {
 				printf(" <TOO LONG>\n");
 				break;
 			}
