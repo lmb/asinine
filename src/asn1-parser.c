@@ -60,7 +60,8 @@ asn1_end(const asn1_parser_t *parser) {
 
 static inline bool
 advance_pos(asn1_parser_t *parser, size_t num) {
-	if (parser->current + num >= parser->end) {
+	// num is under attacker control
+	if ((size_t)(parser->end - parser->current) <= num) {
 		return false;
 	}
 
@@ -125,7 +126,6 @@ asn1_next(asn1_parser_t *parser) {
 			return ASININE_ERROR_UNSUPPORTED;
 		}
 
-		token->length = 0;
 		for (i = 0; i < num_bytes; i++) {
 			if (!advance_pos(parser, 1)) {
 				return ASININE_ERROR_MALFORMED;
@@ -148,11 +148,13 @@ asn1_next(asn1_parser_t *parser) {
 
 	// Content and overflow check
 	if (token->length > 0) {
-		token->data = parser->current + 1;
+		const uint8_t *data = parser->current + 1;
 
 		if (!advance_pos(parser, token->length)) {
 			return ASININE_ERROR_MALFORMED;
 		}
+
+		token->data = data;
 	}
 
 	// Token has been successfully parsed, we now step past the current token.

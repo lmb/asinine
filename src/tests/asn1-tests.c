@@ -410,12 +410,18 @@ test_asn1_parse_invalid(void) {
 	// Long-form, length < 128
 	const uint8_t invalid4[] = {0x01, 0x80 | 0x01, 0x01};
 	// Long-form, length too long
-	const uint8_t invalid5[] = {0x01, 0x80 | 0x0C, 0x01, 0x00, 0x00, 0x00, 0x00,
-	    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+	const uint8_t invalid5[] = {
+	    0x01, 0x80 | 0x0C, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	    0x00, 0x00, 0x00,
+	};
 	// Long-form, length encoding not of minimum length
 	const uint8_t invalid6[] = {0x01, 0x80 | 0x03, 0x00, 0x01, 0x00};
 	// Truncated token
 	const uint8_t truncated[] = {0x01};
+	// Max length overflow token, depends on length of size_t
+	uint8_t max_length[] = {
+	    0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	};
 
 	asn1_parser_t parser;
 
@@ -439,6 +445,16 @@ test_asn1_parse_invalid(void) {
 	check(asn1_next(&parser) == ASININE_ERROR_MALFORMED);
 
 	asn1_init(&parser, truncated, sizeof(truncated));
+	check(asn1_next(&parser) == ASININE_ERROR_MALFORMED);
+
+	// A token of max length overflowed the pointer bounds check
+	max_length[1] = (uint8_t)sizeof parser.token.length;
+	for (uint8_t i = 0; i < max_length[1]; i++) {
+		max_length[2 + i] = 0xFF;
+	}
+	max_length[1] |= 0x80;
+
+	asn1_init(&parser, max_length, sizeof(max_length));
 	check(asn1_next(&parser) == ASININE_ERROR_MALFORMED);
 
 	return 0;
