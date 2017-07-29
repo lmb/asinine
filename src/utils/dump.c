@@ -190,7 +190,7 @@ dump_tokens(asn1_parser_t *parser) {
 	return true;
 }
 
-static const uint8_t *load(const char *filename, size_t *length);
+static const uint8_t *load(int fd, size_t *length);
 
 int
 main(int argc, const char *argv[]) {
@@ -202,7 +202,17 @@ main(int argc, const char *argv[]) {
 		return 1;
 	}
 
-	contents = load(argv[1], &length);
+	int fd = STDIN_FILENO;
+	if (strcmp(argv[1], "-") != 0) {
+		fd = open(argv[1], O_RDONLY);
+		if (fd == -1) {
+			fprintf(stderr, "Could not open source\n");
+			return 1;
+		}
+	}
+
+	contents = load(fd, &length);
+	close(fd);
 
 	if (contents == NULL) {
 		return 1;
@@ -224,46 +234,26 @@ main(int argc, const char *argv[]) {
 }
 
 static const uint8_t *
-load(const char *filename, size_t *length) {
-	int fd;
-	struct stat stat;
-	uint8_t *contents = NULL;
-
-	fd = open(filename, O_RDONLY);
-	if (fd == -1) {
-		printf("Could not open source\n");
+load(int fd, size_t *length) {
+	uint8_t *contents = calloc(1, 1024 * 1024);
+	if (contents == NULL) {
+		printf("Could not allocate memory\n");
 		return NULL;
 	}
 
-	if (fstat(fd, &stat) != 0) {
-		printf("fstat failed\n");
-		goto error;
+	*length = 0;
+	while (*length < 1024 * 1024) {
+		ssize_t n = read(fd, contents + *length, 1024 * 1024 - *length);
+		if (n == 0) {
+			return contents;
+		} else if (n < 0) {
+			perror("Could not read full file");
+			return NULL;
+		}
+		*length += n;
 	}
 
-	if (stat.st_size == 0) {
-		printf("File is empty\n");
-		goto error;
-	}
-
-	contents = malloc(stat.st_size);
-
-	if (contents == NULL) {
-		printf("Could not allocate memory\n");
-		goto error;
-	}
-
-	if (read(fd, contents, stat.st_size) == -1) {
-		printf("Could not read full file\n");
-		goto error;
-	}
-
-	close(fd);
-
-	*length = stat.st_size;
-	return contents;
-
-error:
-	close(fd);
+	fprintf(stderr, "Input too large\n");
 	free(contents);
 	return NULL;
 }
