@@ -64,7 +64,7 @@ dump_token(const asn1_token_t *token, uint8_t depth) {
 	if (token->type.class == ASN1_CLASS_UNIVERSAL) {
 		char buf[256];
 
-		switch ((asn1_tag_t)token->type.tag) {
+		switch (token->type.tag) {
 		case ASN1_TAG_T61STRING:
 		case ASN1_TAG_IA5STRING:
 		case ASN1_TAG_UTF8STRING:

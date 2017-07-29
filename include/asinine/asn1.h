@@ -89,9 +89,12 @@ typedef struct asn1_oid {
 } asn1_oid_t;
 
 typedef struct asn1_type {
-	uint32_t tag;
-	uint8_t class;
-	uint8_t encoding;
+#define ASN1_TYPE_TAG_BITS (24)
+	asn1_tag_t tag : ASN1_TYPE_TAG_BITS;
+#define ASN1_TYPE_CLASS_BITS (2)
+	asn1_class_t class : ASN1_TYPE_CLASS_BITS;
+#define ASN1_TYPE_ENCODING_BITS (1)
+	asn1_encoding_t encoding : ASN1_TYPE_ENCODING_BITS;
 } asn1_type_t;
 
 typedef struct asn1_token {

@@ -537,6 +537,7 @@ test_asn1_all(int *tests_run) {
 	declare_set;
 
 	printf("sizeof asn1_oid_t: %zu\n", sizeof(asn1_oid_t));
+	printf("sizeof asn1_type_t: %zu\n", sizeof(asn1_type_t));
 	printf("sizeof asn1_token_t: %zu\n", sizeof(asn1_token_t));
 	printf("sizeof asn1_parser_t: %zu\n", sizeof(asn1_parser_t));
 

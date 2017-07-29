@@ -100,7 +100,7 @@ asn1_next(asn1_parser_t *parser) {
 
 			// TODO: Could this overflow bits?
 			bits += MULTIPART_TAG_BITS_PER_BYTE;
-			if (bits > sizeof token->type.tag * 8) {
+			if (bits > ASN1_TYPE_TAG_BITS) {
 				return ASININE_ERROR_MEMORY;
 			}
 		} while (*parser->current & MULTIPART_TAG_CONTINUATION);
