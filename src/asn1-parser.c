@@ -92,7 +92,7 @@ asn1_next(asn1_parser_t *parser) {
 
 		do {
 			if (!advance_pos(parser, 1)) {
-				return false;
+				return ASININE_ERROR_MALFORMED;
 			}
 
 			token->type.tag <<= MULTIPART_TAG_BITS_PER_BYTE;
@@ -108,7 +108,7 @@ asn1_next(asn1_parser_t *parser) {
 
 	// Length (8.1.3)
 	if (!advance_pos(parser, 1)) {
-		return false;
+		return ASININE_ERROR_MALFORMED;
 	}
 
 	if (CONTENT_LENGTH_IS_LONG_FORM(*parser->current)) {
@@ -128,7 +128,7 @@ asn1_next(asn1_parser_t *parser) {
 		token->length = 0;
 		for (i = 0; i < num_bytes; i++) {
 			if (!advance_pos(parser, 1)) {
-				return false;
+				return ASININE_ERROR_MALFORMED;
 			}
 
 			if (token->length == 0 && *parser->current == 0) {

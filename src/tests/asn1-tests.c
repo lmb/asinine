@@ -414,6 +414,8 @@ test_asn1_parse_invalid(void) {
 	    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 	// Long-form, length encoding not of minimum length
 	const uint8_t invalid6[] = {0x01, 0x80 | 0x03, 0x00, 0x01, 0x00};
+	// Truncated token
+	const uint8_t truncated[] = {0x01};
 
 	asn1_parser_t parser;
 
@@ -434,6 +436,9 @@ test_asn1_parse_invalid(void) {
 	check(asn1_next(&parser) == ASININE_ERROR_UNSUPPORTED);
 
 	asn1_init(&parser, invalid6, sizeof(invalid6));
+	check(asn1_next(&parser) == ASININE_ERROR_MALFORMED);
+
+	asn1_init(&parser, truncated, sizeof(truncated));
 	check(asn1_next(&parser) == ASININE_ERROR_MALFORMED);
 
 	return 0;

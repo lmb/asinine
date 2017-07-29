@@ -164,8 +164,10 @@ dump_tokens(asn1_parser_t *parser) {
 	const asn1_token_t *const token = &parser->token;
 
 	while (!asn1_eof(parser)) {
-		if (asn1_next(parser) != ASININE_OK) {
-			fprintf(stderr, "Could not parse token\n");
+		asinine_err_t err;
+		if ((err = asn1_next(parser)) != ASININE_OK) {
+			fprintf(
+			    stderr, "Could not parse token: %s\n", asinine_strerror(err));
 			return false;
 		}
 
