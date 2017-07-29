@@ -170,7 +170,7 @@ ASININE_API bool asn1_eq(const asn1_token_t *a, const asn1_token_t *b);
 
 ASININE_API int asn1_time_cmp(const asn1_time_t *a, const asn1_time_t *b);
 
-ASININE_API size_t asn1_to_string(
+ASININE_API size_t asn1_type_to_string(
     char *dst, size_t num, const asn1_type_t *type);
 ASININE_API size_t asn1_time_to_string(
     char *dst, size_t num, const asn1_time_t *time);

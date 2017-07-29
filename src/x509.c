@@ -63,8 +63,7 @@ static asinine_err_t parse_signature_info(asn1_parser_t *, x509_cert_t *);
 static asinine_err_t parse_validity(asn1_parser_t *, x509_cert_t *);
 
 static asinine_err_t parse_extn_key_usage(asn1_parser_t *, x509_cert_t *);
-static asinine_err_t parse_extn_ext_key_usage(
-    asn1_parser_t *, x509_cert_t *);
+static asinine_err_t parse_extn_ext_key_usage(asn1_parser_t *, x509_cert_t *);
 static asinine_err_t parse_extn_basic_constraints(
     asn1_parser_t *, x509_cert_t *);
 
@@ -440,13 +439,13 @@ parse_extn_key_usage(asn1_parser_t *parser, x509_cert_t *cert) {
 	uint8_t buf[2];
 	RETURN_ON_ERROR(asn1_bitstring(&parser->token, buf, sizeof buf));
 
-	cert->key_usage = (buf[1] << 8) | buf[0];
+	cert->key_usage = (uint16_t)(buf[1] << 8) | buf[0];
 
 	/* RFC 5280, p.30: "When the keyUsage extension appears in a certificate, at
 	 * least one of the bits MUST be set to 1."
 	 */
 	return (asn1_eof(parser) && cert->key_usage != 0) ? ASININE_OK
-	                                                   : ASININE_ERROR_INVALID;
+	                                                  : ASININE_ERROR_INVALID;
 }
 
 static asinine_err_t

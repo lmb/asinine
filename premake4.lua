@@ -9,7 +9,7 @@ solution "Asinine"
 	buildoptions { "-std=c99", "-Wpedantic", "-ffunction-sections",
 		"-Wextra", "-Wall", "-fvisibility=hidden", "-Wstrict-overflow",
 		"-fno-strict-aliasing", "-Wno-missing-field-initializers",
-		"-Wno-missing-braces" }
+		"-Wno-missing-braces", "-Wconversion" }
 
 	configuration "Debug"
 		defines { "DEBUG" }

@@ -22,8 +22,11 @@ prelude(const asn1_token_t *token, int depth) {
 	char mark = (type->encoding == ASN1_ENCODING_PRIMITIVE) ? '-' : '*';
 	char buf[256];
 
-	asn1_to_string(buf, sizeof(buf), type);
-	printf("%*s%c %s", depth * 2, "", mark, buf);
+	char *suffix = "";
+	if (asn1_type_to_string(buf, sizeof(buf), type) >= sizeof(buf)) {
+		suffix = "...";
+	}
+	printf("%*s%c %s%s", depth * 2, "", mark, buf, suffix);
 }
 
 static char
@@ -116,7 +119,7 @@ dump_token(const asn1_token_t *token, uint8_t depth) {
 				break;
 			}
 
-			if (sizeof buf <= asn1_time_to_string(buf, sizeof buf, &time)) {
+			if (asn1_time_to_string(buf, sizeof buf, &time) >= sizeof(buf)) {
 				printf(" <TOO LONG>\n");
 				break;
 			}
@@ -250,7 +253,7 @@ load(int fd, size_t *length) {
 			perror("Could not read full file");
 			return NULL;
 		}
-		*length += n;
+		*length += (size_t)n;
 	}
 
 	fprintf(stderr, "Input too large\n");

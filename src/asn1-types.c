@@ -213,7 +213,7 @@ asn1_bitstring(const asn1_token_t *token, uint8_t *buf, const size_t num) {
 
 	// 11.2.1
 	if (unused_bits > 0) {
-		unused_bits = (1 << unused_bits) - 1;
+		unused_bits = (uint8_t)((1 << unused_bits) - 1);
 
 		if ((token->data[token->length - 1] & unused_bits) != 0) {
 			return ASININE_ERROR_MALFORMED;
@@ -223,7 +223,7 @@ asn1_bitstring(const asn1_token_t *token, uint8_t *buf, const size_t num) {
 	for (i = 1, j = 0; i < token->length; i++, j++) {
 		const uint8_t data = token->data[i];
 
-		buf[j] = (lookup[data & 0xf] << 4) | lookup[data >> 4];
+		buf[j] = (uint8_t)(lookup[data & 0xf] << 4) | lookup[data >> 4];
 	}
 
 	return ASININE_OK;
@@ -246,7 +246,7 @@ asn1_int(const asn1_token_t *token, int *value) {
 
 	if (token->length > 1) {
 		// 8.3.2
-		uint16_t leading = ((data[0] << 8) | data[1]) >> 7;
+		int leading = ((data[0] << 8) | data[1]) >> 7;
 
 		if (leading == 0 || leading == (1 << 9) - 1) {
 			return ASININE_ERROR_MALFORMED;
@@ -260,7 +260,7 @@ asn1_int(const asn1_token_t *token, int *value) {
 	}
 
 	// Sign extend
-	mask   = 1U << ((token->length * 8) - 1);
+	mask   = 1 << ((token->length * 8) - 1);
 	*value = (interim ^ mask) - mask;
 
 	return ASININE_OK;
@@ -283,7 +283,7 @@ decode_pair(const char *data, uint8_t *pair) {
 		return false;
 	}
 
-	*pair = (data[0] - 0x30) * 10 + (data[1] - 0x30);
+	*pair = (uint8_t)((data[0] - 0x30) * 10 + (data[1] - 0x30));
 	return true;
 }
 
@@ -461,19 +461,25 @@ tag_to_string(asn1_tag_t tag) {
 }
 
 size_t
-asn1_to_string(char *dst, size_t num, const asn1_type_t *type) {
+asn1_type_to_string(char *dst, size_t num, const asn1_type_t *type) {
+	int res;
 	if (type->class == ASN1_CLASS_UNIVERSAL) {
-		return snprintf(dst, num, "%s", tag_to_string(type->tag));
+		res = snprintf(dst, num, "%s", tag_to_string(type->tag));
 	} else {
 		const char *class = class_to_string(type->class);
-		return snprintf(dst, num, "%s:%d", class, type->tag);
+		res               = snprintf(dst, num, "%s:%d", class, type->tag);
 	}
+	assert(res > 0);
+	return (size_t)res;
 }
 
 size_t
 asn1_time_to_string(char *dst, size_t num, const asn1_time_t *time) {
-	return snprintf(dst, num, "%04d-%02u-%02u %02u:%02u:%02u UTC", time->year,
-	    time->month, time->day, time->hour, time->minute, time->second);
+	int res =
+	    snprintf(dst, num, "%04d-%02u-%02u %02u:%02u:%02u UTC", time->year,
+	        time->month, time->day, time->hour, time->minute, time->second);
+	assert(res > 0);
+	return (size_t)res;
 }
 
 const uint8_t *
