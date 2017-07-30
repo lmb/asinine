@@ -108,24 +108,12 @@ x509_parse(x509_cert_t *cert, const uint8_t *data, size_t num) {
 	asn1_init(&parser, data, num);
 
 	// Certificate
-	NEXT_TOKEN(&parser);
-
-	if (!asn1_is_sequence(&parser.token)) {
-		return ASININE_ERROR_INVALID;
-	}
-
-	RETURN_ON_ERROR(asn1_push(&parser));
+	RETURN_ON_ERROR(asn1_push_seq(&parser));
 
 	// tbsCertificate
-	NEXT_TOKEN(&parser);
-
-	if (!asn1_is_sequence(&parser.token)) {
-		return ASININE_ERROR_INVALID;
-	}
+	RETURN_ON_ERROR(asn1_push_seq(&parser));
 
 	cert->certificate = parser.token;
-
-	RETURN_ON_ERROR(asn1_push(&parser));
 
 	// version
 	NEXT_TOKEN(&parser);
@@ -159,10 +147,12 @@ x509_parse(x509_cert_t *cert, const uint8_t *data, size_t num) {
 	}
 
 	// signature
-	NEXT_TOKEN(&parser);
+	RETURN_ON_ERROR(asn1_push_seq(&parser));
 
 	signature = parser.token;
 	RETURN_ON_ERROR(parse_signature_info(&parser, cert));
+
+	RETURN_ON_ERROR(asn1_pop(&parser));
 
 	// issuer
 	NEXT_TOKEN(&parser);
@@ -265,7 +255,9 @@ parse_optional(asn1_parser_t *parser, x509_cert_t *cert) {
 			return ASININE_ERROR_INVALID;
 		}
 
+		RETURN_ON_ERROR(asn1_push(parser));
 		RETURN_ON_ERROR(parse_extensions(parser, cert));
+		RETURN_ON_ERROR(asn1_pop(parser));
 	}
 
 	return !asn1_eof(parser) ? ASININE_ERROR_INVALID : ASININE_OK;
@@ -288,23 +280,10 @@ static asinine_err_t
 parse_extensions(asn1_parser_t *parser, x509_cert_t *cert) {
 	const asn1_token_t *const token = &parser->token;
 
-	RETURN_ON_ERROR(asn1_push(parser));
-	NEXT_TOKEN(parser);
-
-	if (!asn1_is_sequence(token)) {
-		return ASININE_ERROR_INVALID;
-	}
-
-	RETURN_ON_ERROR(asn1_push(parser));
+	RETURN_ON_ERROR(asn1_push_seq(parser));
 
 	while (!asn1_eof(parser)) {
-		NEXT_TOKEN(parser);
-
-		if (!asn1_is_sequence(token)) {
-			return ASININE_ERROR_INVALID;
-		}
-
-		RETURN_ON_ERROR(asn1_push(parser));
+		RETURN_ON_ERROR(asn1_push_seq(parser));
 
 		// extnid
 		NEXT_TOKEN(parser);
@@ -343,7 +322,6 @@ parse_extensions(asn1_parser_t *parser, x509_cert_t *cert) {
 	}
 
 	RETURN_ON_ERROR(asn1_pop(parser));
-	RETURN_ON_ERROR(asn1_pop(parser));
 
 	return ASININE_OK;
 }
@@ -351,16 +329,6 @@ parse_extensions(asn1_parser_t *parser, x509_cert_t *cert) {
 static asinine_err_t
 parse_signature_info(asn1_parser_t *parser, x509_cert_t *cert) {
 	const asn1_token_t *const token = &parser->token;
-	delegate_parser_t algorithm_parser;
-	asn1_oid_t oid;
-
-	if (!asn1_is_sequence(token)) {
-		return ASININE_ERROR_INVALID;
-	}
-
-	if (asn1_push(parser) != ASININE_OK) {
-		return ASININE_ERROR_INVALID;
-	}
 
 	NEXT_TOKEN(parser);
 
@@ -368,15 +336,15 @@ parse_signature_info(asn1_parser_t *parser, x509_cert_t *cert) {
 		return ASININE_ERROR_INVALID;
 	}
 
+	asn1_oid_t oid;
 	asn1_oid(token, &oid);
-	algorithm_parser = find_algorithm(cert, &oid);
 
+	delegate_parser_t algorithm_parser = find_algorithm(cert, &oid);
 	if (algorithm_parser == NULL) {
 		return ASININE_ERROR_UNSUPPORTED;
 	}
 
 	RETURN_ON_ERROR(algorithm_parser(parser, cert));
-	RETURN_ON_ERROR(asn1_pop(parser));
 
 	return ASININE_OK;
 }
@@ -385,13 +353,7 @@ asinine_err_t
 parse_validity(asn1_parser_t *parser, x509_cert_t *cert) {
 	const asn1_token_t *const token = &parser->token;
 
-	NEXT_TOKEN(parser);
-
-	if (!asn1_is_sequence(token)) {
-		return ASININE_ERROR_INVALID;
-	}
-
-	RETURN_ON_ERROR(asn1_push(parser));
+	RETURN_ON_ERROR(asn1_push_seq(parser));
 
 	// Valid from
 	NEXT_TOKEN(parser);
@@ -450,13 +412,7 @@ parse_extn_key_usage(asn1_parser_t *parser, x509_cert_t *cert) {
 
 static asinine_err_t
 parse_extn_ext_key_usage(asn1_parser_t *parser, x509_cert_t *cert) {
-	NEXT_TOKEN(parser);
-
-	if (!asn1_is_sequence(&parser->token)) {
-		return ASININE_ERROR_INVALID;
-	}
-
-	RETURN_ON_ERROR(asn1_push(parser));
+	RETURN_ON_ERROR(asn1_push_seq(parser));
 
 	cert->ext_key_usage = 0;
 
@@ -499,13 +455,7 @@ parse_extn_ext_key_usage(asn1_parser_t *parser, x509_cert_t *cert) {
 
 static asinine_err_t
 parse_extn_basic_constraints(asn1_parser_t *parser, x509_cert_t *cert) {
-	NEXT_TOKEN(parser);
-
-	if (!asn1_is_sequence(&parser->token)) {
-		return ASININE_ERROR_INVALID;
-	}
-
-	RETURN_ON_ERROR(asn1_push(parser));
+	RETURN_ON_ERROR(asn1_push_seq(parser));
 
 	cert->is_ca               = false;
 	cert->path_len_constraint = -1;

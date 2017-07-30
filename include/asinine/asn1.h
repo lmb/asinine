@@ -123,6 +123,8 @@ ASININE_API asinine_err_t asn1_push(asn1_parser_t *parser);
 ASININE_API asinine_err_t asn1_force_push(asn1_parser_t *parser);
 ASININE_API asinine_err_t asn1_pop(asn1_parser_t *parser);
 
+ASININE_API asinine_err_t asn1_push_seq(asn1_parser_t *parser);
+
 /**
  * Skip to the end of the current token
  * @param  parser ASN.1 parser

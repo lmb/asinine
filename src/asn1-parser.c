@@ -214,3 +214,17 @@ asn1_pop(asn1_parser_t *parser) {
 	parser->stack[parser->depth] = NULL;
 	return ASININE_OK;
 }
+
+asinine_err_t
+asn1_push_seq(asn1_parser_t *parser) {
+	asinine_err_t err;
+	if ((err = asn1_next(parser)) != ASININE_OK) {
+		return err;
+	}
+
+	if (!asn1_is_sequence(&parser->token)) {
+		return ASININE_ERROR_INVALID;
+	}
+
+	return asn1_push(parser);
+}
