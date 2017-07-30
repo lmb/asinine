@@ -6,7 +6,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "asinine/asn1.h"
+#include "asinine/dsl.h"
 #include "asinine/x509.h"
 
 #define NUM(x) (sizeof(x) / sizeof(*x))
@@ -59,7 +59,8 @@ typedef struct {
 static asinine_err_t parse_optional(asn1_parser_t *, x509_cert_t *);
 static asinine_err_t parse_extensions(asn1_parser_t *, x509_cert_t *);
 static asinine_err_t parse_null_args(asn1_parser_t *, x509_cert_t *);
-static asinine_err_t parse_signature_info(asn1_parser_t *, x509_cert_t *);
+static asinine_err_t parse_signature_info(
+    asn1_parser_t *, x509_cert_t *, asn1_token_t *sig);
 static asinine_err_t parse_validity(asn1_parser_t *, x509_cert_t *);
 
 static asinine_err_t parse_extn_key_usage(asn1_parser_t *, x509_cert_t *);
@@ -82,51 +83,30 @@ static const extension_lookup_t extensions[] = {
     {ASN1_OID_FROM_CONST(OID_EXTN_BASIC_CONSTRAINTS),
         &parse_extn_basic_constraints}};
 
-#define RETURN_ON_ERROR(expr) \
-	do { \
-		asinine_err_t ret = expr; \
-		if (ret < ASININE_OK) { \
-			return ret; \
-		} \
-	} while (0)
-#define NEXT_TOKEN(parser) RETURN_ON_ERROR(asn1_next(parser))
-#define NEXT_CHILD(parser) \
-	do { \
-		if (asn1_eof(parser)) { \
-			return asn1_pop(parser); \
-		} \
-		NEXT_TOKEN(parser); \
-	} while (0)
-
 asinine_err_t
-x509_parse(x509_cert_t *cert, const uint8_t *data, size_t num) {
-	asn1_token_t signature;
-	asn1_parser_t parser;
-
+x509_parse(asn1_parser_t *parser, x509_cert_t *cert) {
 	*cert = (x509_cert_t){0};
 
-	asn1_init(&parser, data, num);
-
 	// Certificate
-	RETURN_ON_ERROR(asn1_push_seq(&parser));
+	RETURN_ON_ERROR(asn1_push_seq(parser));
 
 	// tbsCertificate
-	RETURN_ON_ERROR(asn1_push_seq(&parser));
+	RETURN_ON_ERROR(asn1_push_seq(parser));
 
-	cert->certificate = parser.token;
+	cert->certificate = parser->token;
 
 	// version
-	NEXT_TOKEN(&parser);
+	NEXT_TOKEN(parser);
 
 	if (asn1_is(
-	        &parser.token, ASN1_CLASS_CONTEXT, 0, ASN1_ENCODING_CONSTRUCTED)) {
+	        &parser->token, ASN1_CLASS_CONTEXT, 0, ASN1_ENCODING_CONSTRUCTED)) {
 		int version;
 
-		RETURN_ON_ERROR(asn1_push(&parser));
+		RETURN_ON_ERROR(asn1_push(parser));
 
-		NEXT_TOKEN(&parser);
+		NEXT_TOKEN(parser);
 
-		RETURN_ON_ERROR(asn1_int(&parser.token, &version));
+		RETURN_ON_ERROR(asn1_int(&parser->token, &version));
 
 		if (version != X509_V2 && version != X509_V3) {
 			return ASININE_ERROR_INVALID;
@@ -134,79 +114,61 @@ x509_parse(x509_cert_t *cert, const uint8_t *data, size_t num) {
 
 		cert->version = (x509_version_t)version;
 
-		RETURN_ON_ERROR(asn1_pop(&parser));
-		NEXT_TOKEN(&parser);
+		RETURN_ON_ERROR(asn1_pop(parser));
+		NEXT_TOKEN(parser);
 	} else {
 		cert->version = X509_V1;
 	}
 
 	// serialNumber
 	// TODO: As per X.509 guide, this should be treated as a binary blob
-	if (!asn1_is_int(&parser.token)) {
+	if (!asn1_is_int(&parser->token)) {
 		return ASININE_ERROR_INVALID;
 	}
 
 	// signature
-	RETURN_ON_ERROR(asn1_push_seq(&parser));
-
-	signature = parser.token;
-	RETURN_ON_ERROR(parse_signature_info(&parser, cert));
-
-	RETURN_ON_ERROR(asn1_pop(&parser));
+	asn1_token_t signature;
+	RETURN_ON_ERROR(parse_signature_info(parser, cert, &signature));
 
 	// issuer
-	NEXT_TOKEN(&parser);
-
-	// TODO: Sequence might be zero-length, with name in subjectAltName
-	if (!asn1_is_sequence(&parser.token)) {
-		return ASININE_ERROR_INVALID;
-	}
-
-	cert->issuer = parser.token;
+	RETURN_ON_ERROR(x509_parse_name(parser, &cert->issuer));
 
 	// validity
-	RETURN_ON_ERROR(parse_validity(&parser, cert));
+	RETURN_ON_ERROR(parse_validity(parser, cert));
 
 	// subject
-	NEXT_TOKEN(&parser);
-
-	if (!asn1_is_sequence(&parser.token)) {
-		return ASININE_ERROR_INVALID;
-	}
-
-	cert->subject = parser.token;
+	// TODO: Sequence might be zero-length, with name in subjectAltName
+	RETURN_ON_ERROR(x509_parse_name(parser, &cert->subject));
 
 	// subjectPublicKeyInfo
-	NEXT_TOKEN(&parser);
+	NEXT_TOKEN(parser);
 
-	if (!asn1_is_int(&parser.token) && !asn1_is_sequence(&parser.token)) {
+	if (!asn1_is_int(&parser->token) && !asn1_is_sequence(&parser->token)) {
 		return ASININE_ERROR_INVALID;
 	}
 
 	// Optional items (X.509 v2 and up)
-	RETURN_ON_ERROR(parse_optional(&parser, cert));
+	RETURN_ON_ERROR(parse_optional(parser, cert));
 
 	// End of tbsCertificate
-	RETURN_ON_ERROR(asn1_pop(&parser));
+	RETURN_ON_ERROR(asn1_pop(parser));
 
 	// signatureAlgorithm
-	NEXT_TOKEN(&parser);
+	NEXT_TOKEN(parser);
 
-	if (!asn1_eq(&parser.token, &signature)) {
+	if (!asn1_eq(&parser->token, &signature)) {
 		return ASININE_ERROR_INVALID;
 	}
 
 	// signature
-	NEXT_TOKEN(&parser);
+	NEXT_TOKEN(parser);
 
 	// TODO: Do something with the signature
-	if (!asn1_is_bitstring(&parser.token)) {
+	if (!asn1_is_bitstring(&parser->token)) {
 		return ASININE_ERROR_INVALID;
 	}
 
-	RETURN_ON_ERROR(asn1_pop(&parser));
-
-	return asn1_end(&parser) ? ASININE_OK : ASININE_ERROR_INVALID;
+	return asn1_pop(parser);
 }
 
 static delegate_parser_t
@@ -321,14 +283,16 @@ parse_extensions(asn1_parser_t *parser, x509_cert_t *cert) {
 		RETURN_ON_ERROR(asn1_pop(parser));
 	}
 
-	RETURN_ON_ERROR(asn1_pop(parser));
-
-	return ASININE_OK;
+	return asn1_pop(parser);
 }
 
 static asinine_err_t
-parse_signature_info(asn1_parser_t *parser, x509_cert_t *cert) {
+parse_signature_info(
+    asn1_parser_t *parser, x509_cert_t *cert, asn1_token_t *sig) {
 	const asn1_token_t *const token = &parser->token;
+
+	RETURN_ON_ERROR(asn1_push_seq(parser));
+	*sig = *token;
 
 	NEXT_TOKEN(parser);
 
@@ -346,7 +310,7 @@ parse_signature_info(asn1_parser_t *parser, x509_cert_t *cert) {
 
 	RETURN_ON_ERROR(algorithm_parser(parser, cert));
 
-	return ASININE_OK;
+	return asn1_pop(parser);
 }
 
 asinine_err_t
@@ -370,9 +334,7 @@ parse_validity(asn1_parser_t *parser, x509_cert_t *cert) {
 	}
 	RETURN_ON_ERROR(asn1_time(token, &cert->valid_to));
 
-	RETURN_ON_ERROR(asn1_pop(parser));
-
-	return ASININE_OK;
+	return asn1_pop(parser);
 }
 
 static asinine_err_t
@@ -448,9 +410,7 @@ parse_extn_ext_key_usage(asn1_parser_t *parser, x509_cert_t *cert) {
 		}
 	}
 
-	RETURN_ON_ERROR(asn1_pop(parser));
-
-	return asn1_eof(parser) ? ASININE_OK : ASININE_ERROR_INVALID;
+	return asn1_pop(parser);
 }
 
 static asinine_err_t
@@ -479,7 +439,5 @@ parse_extn_basic_constraints(asn1_parser_t *parser, x509_cert_t *cert) {
 	}
 
 	cert->path_len_constraint = (int8_t)value;
-
-	RETURN_ON_ERROR(asn1_pop(parser));
-	return asn1_eof(parser) ? ASININE_OK : ASININE_ERROR_INVALID;
+	return asn1_pop(parser);
 }

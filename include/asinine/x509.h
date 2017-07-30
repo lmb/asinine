@@ -12,6 +12,8 @@ extern "C" {
 
 #include "asinine/asn1.h"
 
+#define X509_MAX_RDNS (13)
+
 typedef struct x509_cert x509_cert_t;
 
 typedef enum x509_version {
@@ -53,12 +55,22 @@ typedef enum x509_ext_keyuse {
 	X509_EXT_KEYUSE_ANY          = 63
 } x509_ext_keyuse_t;
 
+typedef struct x509_rdn {
+	asn1_oid_t oid;
+	asn1_token_t value;
+} x509_rdn_t;
+
+typedef struct x509_name {
+	size_t num;
+	x509_rdn_t rdns[X509_MAX_RDNS];
+} x509_name_t;
+
 struct x509_cert {
 	x509_version_t version;
 	x509_algorithm_t algorithm;
 	asn1_token_t certificate;
-	asn1_token_t issuer;
-	asn1_token_t subject;
+	x509_name_t issuer;
+	x509_name_t subject;
 	asn1_time_t valid_from;
 	asn1_time_t valid_to;
 	uint16_t key_usage;
@@ -67,8 +79,12 @@ struct x509_cert {
 	int8_t path_len_constraint;
 };
 
-ASININE_API asinine_err_t x509_parse(
-    x509_cert_t *cert, const uint8_t *data, size_t num);
+ASININE_API asinine_err_t x509_parse(asn1_parser_t *parser, x509_cert_t *cert);
+ASININE_API asinine_err_t x509_parse_name(
+    asn1_parser_t *parser, x509_name_t *name);
+ASININE_API void x509_sort_name(x509_name_t *name);
+ASININE_API bool x509_name_eq(
+    const x509_name_t *a, const x509_name_t *b, const char **err);
 
 #ifdef __cplusplus
 }

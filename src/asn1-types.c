@@ -482,15 +482,6 @@ asn1_time_to_string(char *dst, size_t num, const asn1_time_t *time) {
 	return (size_t)res;
 }
 
-const uint8_t *
-asn1_raw(const asn1_token_t *token) {
-	if (token->data == NULL || token->length == 0) {
-		return NULL;
-	}
-
-	return token->data;
-}
-
 static inline bool
 type_eq(const asn1_type_t *type, asn1_class_t class, asn1_tag_t tag,
     asn1_encoding_t encoding) {

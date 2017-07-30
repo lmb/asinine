@@ -18,6 +18,7 @@
 *.app
 /tests
 /dump
+/x509
 
 # Build system files
 /Makefile

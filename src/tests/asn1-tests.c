@@ -6,43 +6,15 @@
 #include <limits.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <string.h>
 
 #include "asinine/asn1.h"
 #include "asinine/macros.h"
 
-#include "asinine/test.h"
 #include "asinine/tests/asn1.h"
+#include "asinine/tests/test.h"
 
 #define TEST_OID1 ASN1_CONST_OID(1, 1, 2, 4)
 #define TEST_OID2 ASN1_CONST_OID(2, 999, 1)
-
-#define TOKEN_(tag_, dat, len, enc) \
-	{ \
-		.type = {.class = ASN1_CLASS_UNIVERSAL, \
-		    .tag        = (tag_), \
-		    .encoding   = (enc)}, \
-		.data = (dat), .length = (len) \
-	}
-#define STR_TOKEN(tag, str) \
-	TOKEN_(tag, (uint8_t *)(str), strlen(str), ASN1_ENCODING_PRIMITIVE)
-#define TOKEN(tag, data, enc) TOKEN_(tag, data, sizeof(data), enc)
-
-#define RAW(tag, ...) tag, PP_NARG(__VA_ARGS__), __VA_ARGS__
-#define EMPTY_RAW(tag) tag, 0x00
-#define SEQ(...) RAW(0x30, __VA_ARGS__)
-#define EMPTY_SEQ() EMPTY_RAW(0x30)
-#define INT(...) RAW(0x02, __VA_ARGS__)
-#define EMPTY_INT() EMPTY_RAW(0x02)
-#define OID(...) RAW(0x06, __VA_ARGS__)
-#define EMPTY_OID() EMPTY_RAW(0x06)
-#define NUL() EMPTY_RAW(0x05)
-
-#define TIME(_year, _month, _day, _hour, _minute, _second) \
-	(asn1_time_t) { \
-		.year = _year, .month = _month, .day = _day, .hour = _hour, \
-		.minute = _minute, .second = _second \
-	}
 
 #define NUM(x) (sizeof(x) / sizeof(x[0]))
 

@@ -33,6 +33,13 @@ solution "Asinine"
 
 		files { "src/utils/dump.c" }
 
+	project "x509"
+		kind "ConsoleApp"
+		language "C"
+		links { "asinine" }
+
+		files { "src/utils/x509.c" }
+
 	project "tests"
 		kind "ConsoleApp"
 		language "C"
