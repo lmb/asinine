@@ -101,7 +101,6 @@ typedef struct asn1_token {
 	const uint8_t *data;
 	size_t length;
 	asn1_type_t type;
-	bool is_primitive;
 } asn1_token_t;
 
 typedef struct asn1_parser {
