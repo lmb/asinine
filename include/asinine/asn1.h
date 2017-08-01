@@ -121,6 +121,8 @@ ASININE_API asinine_err_t asn1_next(asn1_parser_t *parser);
 ASININE_API asinine_err_t asn1_push(asn1_parser_t *parser);
 ASININE_API asinine_err_t asn1_force_push(asn1_parser_t *parser);
 ASININE_API asinine_err_t asn1_pop(asn1_parser_t *parser);
+ASININE_API asinine_err_t asn1_tokens(asn1_parser_t *parser, void *ctx,
+    void (*fn)(const asn1_token_t *, uint8_t depth, void *ctx));
 
 ASININE_API asinine_err_t asn1_push_seq(asn1_parser_t *parser);
 

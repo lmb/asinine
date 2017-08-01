@@ -216,6 +216,33 @@ asn1_pop(asn1_parser_t *parser) {
 }
 
 asinine_err_t
+asn1_tokens(asn1_parser_t *parser, void *ctx,
+    void (*fn)(const asn1_token_t *, uint8_t depth, void *ctx)) {
+	while (!asn1_end(parser)) {
+		asinine_err_t err;
+		if ((err = asn1_next(parser)) != ASININE_OK) {
+			return err;
+		}
+
+		fn(&parser->token, parser->depth, ctx);
+
+		if (parser->token.type.encoding == ASN1_ENCODING_CONSTRUCTED) {
+			if ((err = asn1_push(parser)) != ASININE_OK) {
+				return err;
+			}
+		}
+
+		while (asn1_eof(parser)) {
+			if ((err = asn1_pop(parser)) != ASININE_OK) {
+				return err;
+			}
+		}
+	}
+
+	return ASININE_OK;
+}
+
+asinine_err_t
 asn1_push_seq(asn1_parser_t *parser) {
 	asinine_err_t err;
 	if ((err = asn1_next(parser)) != ASININE_OK) {

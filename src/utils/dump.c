@@ -15,20 +15,6 @@
 
 #define BYTES_PER_LINE (12)
 
-static void
-prelude(const asn1_token_t *token, int depth) {
-	const asn1_type_t *const type = &token->type;
-
-	char mark = (type->encoding == ASN1_ENCODING_PRIMITIVE) ? '-' : '*';
-	char buf[256];
-
-	char *suffix = "";
-	if (asn1_type_to_string(buf, sizeof(buf), type) >= sizeof(buf)) {
-		suffix = "...";
-	}
-	printf("%*s%c %s%s", depth * 2, "", mark, buf, suffix);
-}
-
 static char
 to_printable(uint8_t value) {
 	return (32 <= value && value <= 127) ? (char)value : '.';
@@ -62,12 +48,25 @@ hexdump(const asn1_token_t *token, int depth) {
 	}
 }
 
-static void
-dump_token(const asn1_token_t *token, uint8_t depth) {
-	if (token->type.class == ASN1_CLASS_UNIVERSAL) {
-		char buf[256];
+void
+dump_token(const asn1_token_t *token, uint8_t depth, void *ctx) {
+	(void)ctx;
 
-		switch (token->type.tag) {
+	const asn1_type_t *type = &token->type;
+
+	char mark = (type->encoding == ASN1_ENCODING_PRIMITIVE) ? '-' : '*';
+	char buf[256];
+
+	char *suffix = "";
+	if (asn1_type_to_string(buf, sizeof(buf), type) >= sizeof(buf)) {
+		suffix = "...";
+	}
+	printf("%*s%c %s%s", depth * 2, "", mark, buf, suffix);
+
+	if (type->encoding == ASN1_ENCODING_CONSTRUCTED) {
+		printf("\n");
+	} else if (type->class == ASN1_CLASS_UNIVERSAL) {
+		switch (type->tag) {
 		case ASN1_TAG_T61STRING:
 		case ASN1_TAG_IA5STRING:
 		case ASN1_TAG_UTF8STRING:
@@ -159,41 +158,6 @@ dump_token(const asn1_token_t *token, uint8_t depth) {
 	}
 }
 
-static bool
-dump_tokens(asn1_parser_t *parser) {
-	const asn1_token_t *const token = &parser->token;
-
-	while (!asn1_eof(parser)) {
-		asinine_err_t err;
-		if ((err = asn1_next(parser)) != ASININE_OK) {
-			fprintf(
-			    stderr, "Could not parse token: %s\n", asinine_strerror(err));
-			return false;
-		}
-
-		prelude(token, parser->depth);
-
-		if (token->type.encoding == ASN1_ENCODING_CONSTRUCTED) {
-			printf("\n");
-
-			if (asn1_push(parser) != ASININE_OK) {
-				return false;
-			}
-
-			if (!dump_tokens(parser)) {
-				return false;
-			}
-
-			if (asn1_pop(parser) != ASININE_OK) {
-				return false;
-			}
-		} else {
-			dump_token(token, parser->depth);
-		}
-	}
-
-	return true;
-}
 
 static const uint8_t *load(int fd, size_t *length);
 
@@ -226,13 +190,10 @@ main(int argc, const char *argv[]) {
 	asn1_parser_t parser;
 	asn1_init(&parser, contents, length);
 
-	if (!dump_tokens(&parser)) {
+	asinine_err_t err = asn1_tokens(&parser, NULL, dump_token);
+	if (err != ASININE_OK) {
+		fprintf(stderr, "Failed: %s\n", asinine_strerror(err));
 		return 2;
-	}
-
-	if (!asn1_end(&parser)) {
-		fprintf(stderr, "Did not parse full file\n");
-		return 3;
 	}
 
 	return 0;
