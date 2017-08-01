@@ -79,7 +79,7 @@ exit:
 	return res;
 }
 
-static uint8_t *load(int fd, size_t *length);
+static uint8_t *load(FILE *fd, size_t *length);
 
 int
 main(int argc, const char *argv[]) {
@@ -88,10 +88,10 @@ main(int argc, const char *argv[]) {
 		return 1;
 	}
 
-	int fd = STDIN_FILENO;
+	FILE *fd = stdin;
 	if (strcmp(argv[1], "-") != 0) {
-		fd = open(argv[1], O_RDONLY);
-		if (fd == -1) {
+		fd = fopen(argv[1], "rb");
+		if (fd == NULL) {
 			fprintf(stderr, "Could not open source\n");
 			return 1;
 		}
@@ -99,7 +99,7 @@ main(int argc, const char *argv[]) {
 
 	size_t length;
 	uint8_t *contents = load(fd, &length);
-	close(fd);
+	fclose(fd);
 
 	if (contents == NULL) {
 		return 1;
@@ -111,7 +111,7 @@ main(int argc, const char *argv[]) {
 }
 
 static uint8_t *
-load(int fd, size_t *length) {
+load(FILE *fd, size_t *length) {
 #define BUF_SIZE (1024 * 1024)
 	uint8_t *contents = calloc(1, BUF_SIZE);
 	if (contents == NULL) {
@@ -119,19 +119,12 @@ load(int fd, size_t *length) {
 		return NULL;
 	}
 
-	*length = 0;
-	while (*length < BUF_SIZE) {
-		ssize_t n = read(fd, contents + *length, BUF_SIZE - *length);
-		if (n == 0) {
-			return contents;
-		} else if (n < 0) {
-			perror("Could not read full file");
-			return NULL;
-		}
-		*length += (size_t)n;
+	*length = fread(contents, 1, BUF_SIZE, fd);
+	if (*length < BUF_SIZE) {
+		return contents;
 	}
 
-	fprintf(stderr, "Input too large\n");
+	fprintf(stderr, "Input is longer than %d bytes\n", BUF_SIZE);
 	free(contents);
 	return NULL;
 #undef BUF_SIZE
