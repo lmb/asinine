@@ -14,8 +14,9 @@
 #define SECONDS_PER_HOUR (3600)
 #define SECONDS_PER_MINUTE (60)
 
-/** Y, M, D, H, M, S "Z" */
-#define TIME_LENGTH (6 * 2 + 1)
+/** (Y,) Y, M, D, H, M, S "Z" */
+#define MIN_TIME_LENGTH (6 * 2 + 1)
+#define MAX_TIME_LENGTH (7 * 2 + 1)
 #define NUM(x) (sizeof x / sizeof(x)[0])
 
 static bool
@@ -291,21 +292,17 @@ asinine_err_t
 asn1_time(const asn1_token_t *token, asn1_time_t *time) {
 	static const uint8_t days_per_month[12] = {
 	    // Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec
-	    31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
-
+	    31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31,
+	};
 	const char *data = (char *)token->data;
 
-	// YYMMDDHHMMSS(Z|+-D)
-	uint8_t pairs[6];
-
-	size_t i;
-	bool is_leap;
-
-	if (token->length != TIME_LENGTH) {
+	if (token->length < MIN_TIME_LENGTH || token->length > MAX_TIME_LENGTH) {
 		return ASININE_ERROR_MALFORMED;
 	}
 
-	for (i = 0; i < NUM(pairs); data += 2, i++) {
+	// (YY)YYMMDDHHMMSS(Z|+-D)
+	uint8_t pairs[7];
+	for (size_t i = 0; i < token->length / 2; data += 2, i++) {
 		if (!decode_pair(data, &pairs[i])) {
 			return ASININE_ERROR_MALFORMED;
 		}
@@ -320,15 +317,12 @@ asn1_time(const asn1_token_t *token, asn1_time_t *time) {
 		return ASININE_ERROR_MALFORMED;
 	}
 
-	time->year   = pairs[0];
-	time->month  = pairs[1];
-	time->day    = pairs[2];
-	time->hour   = pairs[3];
-	time->minute = pairs[4];
-	time->second = pairs[5];
+	size_t i = 0;
+	switch (token->type.tag) {
+	case ASN1_TAG_UTCTIME:
+		time->year = pairs[0];
+		i += 1;
 
-	// Validation
-	if (token->type.tag == ASN1_TAG_UTCTIME) {
 		// Years are from (19)50 to (20)49, so 99 is 1999 and 00 is 2000.
 		if (time->year > 99) {
 			return ASININE_ERROR_MALFORMED;
@@ -337,19 +331,33 @@ asn1_time(const asn1_token_t *token, asn1_time_t *time) {
 		// Normalize years, since the encoding is not linear:
 		// 00 -> 2000, 49 -> 2049, 50 -> 1950, 99 -> 1999
 		time->year += (time->year > 49) ? 1900 : 2000;
-	} else {
+		break;
+
+	case ASN1_TAG_GENERALIZEDTIME:
+		time->year = pairs[0] * 100 + pairs[1];
+		i += 2;
+
+		// TODO: GeneralizedTime should not be used for dates before 2050.
+		break;
+
+	default:
 		return ASININE_ERROR_MALFORMED;
 	}
 
-	is_leap = is_leap_year(time->year);
+	time->month  = pairs[i++];
+	time->day    = pairs[i++];
+	time->hour   = pairs[i++];
+	time->minute = pairs[i++];
+	time->second = pairs[i++];
 
+	// Validation
 	if (time->month < 1 || time->month > 12) {
 		return ASININE_ERROR_MALFORMED;
 	}
 
 	if (time->day < 1) {
 		return ASININE_ERROR_MALFORMED;
-	} else if (is_leap && time->month == 2) {
+	} else if (is_leap_year(time->year) && time->month == 2) {
 		if (time->day > 29) {
 			return ASININE_ERROR_MALFORMED;
 		}
@@ -514,9 +522,10 @@ asn1_is(const asn1_token_t *token, asn1_class_t class, asn1_tag_t tag,
 bool
 asn1_is_time(const asn1_token_t *token) {
 	assert(token != NULL);
-
 	return type_eq(&token->type, ASN1_CLASS_UNIVERSAL, ASN1_TAG_UTCTIME,
-	    ASN1_ENCODING_PRIMITIVE);
+	           ASN1_ENCODING_PRIMITIVE) ||
+	       type_eq(&token->type, ASN1_CLASS_UNIVERSAL, ASN1_TAG_GENERALIZEDTIME,
+	           ASN1_ENCODING_PRIMITIVE);
 }
 
 bool
