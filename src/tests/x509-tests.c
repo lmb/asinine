@@ -90,6 +90,36 @@ test_x509_parse_name() {
 	return 0;
 }
 
+static char *
+test_x509_sort_name() {
+	x509_name_t name = {
+	    .num = 3,
+	    .rdns =
+	        {
+	            {
+	                .oid   = ASN1_OID(1, 2, 3),
+	                .value = STR_TOKEN(ASN1_TAG_UTF8STRING, "Warudo"),
+	            },
+	            {
+	                .oid   = ASN1_OID(1, 2, 4),
+	                .value = STR_TOKEN(ASN1_TAG_UTF8STRING, "!!!"),
+	            },
+	            {
+	                .oid   = ASN1_OID(1, 2),
+	                .value = STR_TOKEN(ASN1_TAG_UTF8STRING, "Za"),
+	            },
+	        },
+	};
+
+	x509_sort_name(&name);
+
+	check(strncmp((char *)name.rdns[0].value.data, "Za", 2) == 0);
+	check(strncmp((char *)name.rdns[1].value.data, "Warudo", 6) == 0);
+	check(strncmp((char *)name.rdns[2].value.data, "!!!", 3) == 0);
+
+	return 0;
+}
+
 int
 test_x509_all(int *tests_run) {
 	declare_set;
@@ -100,6 +130,7 @@ test_x509_all(int *tests_run) {
 
 	run_test(test_x509_certs);
 	run_test(test_x509_parse_name);
+	run_test(test_x509_sort_name);
 
 	end_set;
 }

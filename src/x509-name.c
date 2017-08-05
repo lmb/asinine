@@ -91,14 +91,12 @@ void
 x509_sort_name(x509_name_t *name) {
 	for (size_t i = 1; i < name->num; i++) {
 		x509_rdn_t temp = name->rdns[i];
-		size_t j        = i - 1;
-
-		while (j > 0 && asn1_oid_cmp(&name->rdns[j].oid, &temp.oid) > 0) {
-			name->rdns[j + 1] = name->rdns[j];
+		size_t j        = i;
+		while (j > 0 && asn1_oid_cmp(&name->rdns[j - 1].oid, &temp.oid) > 0) {
+			name->rdns[j] = name->rdns[j - 1];
 			j--;
 		}
-
-		name->rdns[j + 1] = temp;
+		name->rdns[j] = temp;
 	}
 }
 
