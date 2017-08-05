@@ -99,15 +99,15 @@ test_asn1_oid_to_string(void) {
 static char *
 test_asn1_oid_comparison(void) {
 	const asn1_oid_t a = ASN1_OID_FROM_CONST(TEST_OID1);
-	const asn1_oid_t b = ASN1_OID(1, 2, 3);
-	const asn1_oid_t c = ASN1_OID_FROM_CONST(TEST_OID1);
+	const asn1_oid_t b = ASN1_OID(1, 1, 3, 4);
+	const asn1_oid_t c = ASN1_OID(1, 1, 2, 4, 1);
 
 	check(asn1_oid_eq(&a, TEST_OID1));
 	check(!asn1_oid_eq(&b, TEST_OID1));
 
+	check(asn1_oid_cmp(&a, &a) == 0);
 	check(asn1_oid_cmp(&a, &b) < 0);
-	check(asn1_oid_cmp(&b, &a) > 0);
-	check(asn1_oid_cmp(&a, &c) == 0);
+	check(asn1_oid_cmp(&b, &c) > 0);
 
 	return 0;
 }

@@ -182,13 +182,16 @@ asn1_oid_eq(const asn1_oid_t *oid, size_t num, ...) {
 
 int
 asn1_oid_cmp(const asn1_oid_t *a, const asn1_oid_t *b) {
-	size_t i;
+	size_t num = a->num;
+	if (num > b->num) {
+		num = b->num;
+	}
 
-	for (i = 0; i < NUM(a->arcs); ++i) {
+	for (size_t i = 0; i < num; ++i) {
 		if (a->arcs[i] != b->arcs[i]) {
 			return (a->arcs[i] > b->arcs[i]) - (a->arcs[i] < b->arcs[i]);
 		}
 	}
 
-	return 0;
+	return (a->num > b->num) - (a->num < b->num);
 }
