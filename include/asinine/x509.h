@@ -24,9 +24,16 @@ typedef enum x509_version {
 
 typedef enum x509_algorithm {
 	X509_ALGORITHM_INVALID = 0,
+	X509_ALGORITHM_MD2_RSA,
 	X509_ALGORITHM_MD5_RSA,
 	X509_ALGORITHM_SHA1_RSA,
 	X509_ALGORITHM_SHA256_RSA,
+	X509_ALGORITHM_SHA384_RSA,
+	X509_ALGORITHM_SHA512_RSA,
+	X509_ALGORITHM_SHA256_ECDSA,
+	X509_ALGORITHM_SHA384_ECDSA,
+	X509_ALGORITHM_SHA512_ECDSA,
+	X509_ALGORITHM_SHA256_DSA,
 } x509_algorithm_t;
 
 /**
@@ -75,6 +82,7 @@ struct x509_cert {
 	asn1_time_t valid_to;
 	uint16_t key_usage;
 	uint8_t ext_key_usage;
+	bool deprecated;
 	bool is_ca;
 	int8_t path_len_constraint;
 };

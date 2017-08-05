@@ -16,10 +16,6 @@
 #define _OID_CE 2, 5, 29
 #define _OID_PKCS 1, 2, 840, 113549, 1, 1
 
-// Signature algorithms
-#define OID_ALGO_MD5_RSA ASN1_CONST_OID(_OID_PKCS, 4)
-#define OID_ALGO_SHA1_RSA ASN1_CONST_OID(_OID_PKCS, 5)
-
 // These are found in DNs
 #define OID_DN_COMMON_NAME ASN1_CONST_OID(2, 5, 4, 3)
 #define OID_DN_COUNTRY_NAME ASN1_CONST_OID(2, 5, 4, 6)
@@ -49,6 +45,7 @@ typedef struct {
 	asn1_oid_t oid;
 	x509_algorithm_t type;
 	delegate_parser_t parser;
+	bool deprecated;
 } algorithm_lookup_t;
 
 typedef struct {
@@ -59,6 +56,7 @@ typedef struct {
 static asinine_err_t parse_optional(asn1_parser_t *, x509_cert_t *);
 static asinine_err_t parse_extensions(asn1_parser_t *, x509_cert_t *);
 static asinine_err_t parse_null_args(asn1_parser_t *, x509_cert_t *);
+static asinine_err_t parse_empty_args(asn1_parser_t *, x509_cert_t *);
 static asinine_err_t parse_signature_info(
     asn1_parser_t *, x509_cert_t *, asn1_token_t *sig);
 static asinine_err_t parse_validity(asn1_parser_t *, x509_cert_t *);
@@ -68,20 +66,61 @@ static asinine_err_t parse_extn_ext_key_usage(asn1_parser_t *, x509_cert_t *);
 static asinine_err_t parse_extn_basic_constraints(
     asn1_parser_t *, x509_cert_t *);
 
-// TODO: Make runtime possibly?
 static const algorithm_lookup_t algorithms[] = {
-    {ASN1_OID_FROM_CONST(OID_ALGO_MD5_RSA), X509_ALGORITHM_MD5_RSA,
-        &parse_null_args},
-    {ASN1_OID_FROM_CONST(OID_ALGO_SHA1_RSA), X509_ALGORITHM_SHA1_RSA,
-        &parse_null_args},
-    {ASN1_OID(1, 2, 840, 113549, 1, 1, 11), X509_ALGORITHM_SHA256_RSA,
-        &parse_null_args}};
+    {
+        ASN1_OID(1, 2, 840, 113549, 1, 1, 2), X509_ALGORITHM_MD2_RSA,
+        &parse_null_args, true,
+    },
+    {
+        ASN1_OID(1, 2, 840, 113549, 1, 1, 4), X509_ALGORITHM_MD5_RSA,
+        &parse_null_args, true,
+    },
+    {
+        ASN1_OID(1, 2, 840, 113549, 1, 1, 5), X509_ALGORITHM_SHA1_RSA,
+        &parse_null_args, true,
+    },
+    {
+        ASN1_OID(1, 2, 840, 113549, 1, 1, 11), X509_ALGORITHM_SHA256_RSA,
+        &parse_null_args, false,
+    },
+    {
+        ASN1_OID(1, 2, 840, 113549, 1, 1, 12), X509_ALGORITHM_SHA384_RSA,
+        &parse_null_args, false,
+    },
+    {
+        ASN1_OID(1, 2, 840, 113549, 1, 1, 13), X509_ALGORITHM_SHA512_RSA,
+        &parse_null_args, false,
+    },
+    {
+        ASN1_OID(1, 2, 840, 10045, 4, 3, 2), X509_ALGORITHM_SHA256_ECDSA,
+        &parse_empty_args, false,
+    },
+    {
+        ASN1_OID(1, 2, 840, 10045, 4, 3, 3), X509_ALGORITHM_SHA384_ECDSA,
+        &parse_empty_args, false,
+    },
+    {
+        ASN1_OID(1, 2, 840, 10045, 4, 3, 3), X509_ALGORITHM_SHA512_ECDSA,
+        &parse_empty_args, false,
+    },
+    {
+        ASN1_OID(2, 16, 840, 1, 101, 3, 4, 3, 2), X509_ALGORITHM_SHA256_DSA,
+        &parse_empty_args, false,
+    },
+};
 
 static const extension_lookup_t extensions[] = {
-    {ASN1_OID_FROM_CONST(OID_EXTN_KEY_USAGE), &parse_extn_key_usage},
-    {ASN1_OID_FROM_CONST(OID_EXTN_EXT_KEY_USAGE), &parse_extn_ext_key_usage},
-    {ASN1_OID_FROM_CONST(OID_EXTN_BASIC_CONSTRAINTS),
-        &parse_extn_basic_constraints}};
+    {
+        ASN1_OID_FROM_CONST(OID_EXTN_KEY_USAGE), &parse_extn_key_usage,
+    },
+    {
+        ASN1_OID_FROM_CONST(OID_EXTN_EXT_KEY_USAGE), &parse_extn_ext_key_usage,
+    },
+    {
+        ASN1_OID_FROM_CONST(OID_EXTN_BASIC_CONSTRAINTS),
+        &parse_extn_basic_constraints,
+    },
+};
 
 asinine_err_t
 x509_parse(asn1_parser_t *parser, x509_cert_t *cert) {
@@ -171,13 +210,12 @@ x509_parse(asn1_parser_t *parser, x509_cert_t *cert) {
 	return asn1_pop(parser);
 }
 
-static delegate_parser_t
-find_algorithm(x509_cert_t *cert, const asn1_oid_t *oid) {
+static const algorithm_lookup_t *
+find_algorithm(const asn1_oid_t *oid) {
 	size_t i;
 	for (i = 0; i < NUM(algorithms); i++) {
 		if (asn1_oid_cmp(oid, &(algorithms[i].oid)) == 0) {
-			cert->algorithm = algorithms[i].type;
-			return algorithms[i].parser;
+			return &algorithms[i];
 		}
 	}
 
@@ -303,12 +341,15 @@ parse_signature_info(
 	asn1_oid_t oid;
 	asn1_oid(token, &oid);
 
-	delegate_parser_t algorithm_parser = find_algorithm(cert, &oid);
-	if (algorithm_parser == NULL) {
+	const algorithm_lookup_t *result = find_algorithm(&oid);
+	if (result == NULL) {
 		return ASININE_ERROR_UNSUPPORTED;
 	}
 
-	RETURN_ON_ERROR(algorithm_parser(parser, cert));
+	cert->algorithm  = result->type;
+	cert->deprecated = cert->deprecated || result->deprecated;
+
+	RETURN_ON_ERROR(result->parser(parser, cert));
 
 	return asn1_pop(parser);
 }
@@ -350,6 +391,13 @@ parse_null_args(asn1_parser_t *parser, x509_cert_t *cert) {
 	}
 
 	return ASININE_OK;
+}
+
+static asinine_err_t
+parse_empty_args(asn1_parser_t *parser, x509_cert_t *cert) {
+	(void)cert;
+
+	return asn1_eof(parser) ? ASININE_OK : ASININE_ERROR_MALFORMED;
 }
 
 static asinine_err_t
