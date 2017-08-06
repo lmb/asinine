@@ -55,7 +55,7 @@ typedef struct {
 
 static asinine_err_t parse_optional(asn1_parser_t *, x509_cert_t *);
 static asinine_err_t parse_extensions(asn1_parser_t *, x509_cert_t *);
-static asinine_err_t parse_null_args(asn1_parser_t *, x509_cert_t *);
+static asinine_err_t parse_null_or_empty_args(asn1_parser_t *, x509_cert_t *);
 static asinine_err_t parse_empty_args(asn1_parser_t *, x509_cert_t *);
 static asinine_err_t parse_signature_info(
     asn1_parser_t *, x509_cert_t *, asn1_token_t *sig);
@@ -69,27 +69,27 @@ static asinine_err_t parse_extn_basic_constraints(
 static const algorithm_lookup_t algorithms[] = {
     {
         ASN1_OID(1, 2, 840, 113549, 1, 1, 2), X509_ALGORITHM_MD2_RSA,
-        &parse_null_args, true,
+        &parse_null_or_empty_args, true,
     },
     {
         ASN1_OID(1, 2, 840, 113549, 1, 1, 4), X509_ALGORITHM_MD5_RSA,
-        &parse_null_args, true,
+        &parse_null_or_empty_args, true,
     },
     {
         ASN1_OID(1, 2, 840, 113549, 1, 1, 5), X509_ALGORITHM_SHA1_RSA,
-        &parse_null_args, true,
+        &parse_null_or_empty_args, true,
     },
     {
         ASN1_OID(1, 2, 840, 113549, 1, 1, 11), X509_ALGORITHM_SHA256_RSA,
-        &parse_null_args, false,
+        &parse_null_or_empty_args, false,
     },
     {
         ASN1_OID(1, 2, 840, 113549, 1, 1, 12), X509_ALGORITHM_SHA384_RSA,
-        &parse_null_args, false,
+        &parse_null_or_empty_args, false,
     },
     {
         ASN1_OID(1, 2, 840, 113549, 1, 1, 13), X509_ALGORITHM_SHA512_RSA,
-        &parse_null_args, false,
+        &parse_null_or_empty_args, false,
     },
     {
         ASN1_OID(1, 2, 840, 10045, 4, 3, 2), X509_ALGORITHM_SHA256_ECDSA,
@@ -379,10 +379,16 @@ parse_validity(asn1_parser_t *parser, x509_cert_t *cert) {
 }
 
 static asinine_err_t
-parse_null_args(asn1_parser_t *parser, x509_cert_t *cert) {
+parse_null_or_empty_args(asn1_parser_t *parser, x509_cert_t *cert) {
 	const asn1_token_t *const token = &parser->token;
 
 	(void)cert;
+
+	// There is at least one implementation which skips the null.
+	// This deviates from the spec.
+	if (asn1_eof(parser)) {
+		return ASININE_OK;
+	}
 
 	NEXT_TOKEN(parser);
 
