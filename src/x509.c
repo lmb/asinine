@@ -13,8 +13,6 @@
 
 // Common OID prefixes
 #define _OID_KEY_USAGE 1, 3, 6, 1, 5, 5, 7, 3
-#define _OID_CE 2, 5, 29
-#define _OID_PKCS 1, 2, 840, 113549, 1, 1
 
 // These are found in DNs
 #define OID_DN_COMMON_NAME ASN1_CONST_OID(2, 5, 4, 3)
@@ -25,13 +23,8 @@
 #define OID_DN_ORGANIZATION ASN1_CONST_OID(2, 5, 4, 10)
 #define OID_DN_ORGANIZATION_UNIT ASN1_CONST_OID(2, 5, 4, 11)
 
-// These are possible extensions
-#define OID_EXTN_KEY_USAGE ASN1_CONST_OID(_OID_CE, 15)
-#define OID_EXTN_EXT_KEY_USAGE ASN1_CONST_OID(_OID_CE, 37)
-#define OID_EXTN_BASIC_CONSTRAINTS ASN1_CONST_OID(_OID_CE, 19)
-
 // These are possible extended key usage OIDs
-#define OID_EXT_KEY_USAGE_ANY ASN1_CONST_OID(_OID_CE, 37, 0)
+#define OID_EXT_KEY_USAGE_ANY ASN1_CONST_OID(2, 5, 29, 37, 0)
 #define OID_EXT_KEY_USAGE_SERVER_AUTH ASN1_CONST_OID(_OID_KEY_USAGE, 1)
 #define OID_EXT_KEY_USAGE_CLIENT_AUTH ASN1_CONST_OID(_OID_KEY_USAGE, 2)
 #define OID_EXT_KEY_USAGE_CODE_SIGNING ASN1_CONST_OID(_OID_KEY_USAGE, 3)
@@ -64,6 +57,8 @@ static asinine_err_t parse_validity(asn1_parser_t *, x509_cert_t *);
 static asinine_err_t parse_extn_key_usage(asn1_parser_t *, x509_cert_t *);
 static asinine_err_t parse_extn_ext_key_usage(asn1_parser_t *, x509_cert_t *);
 static asinine_err_t parse_extn_basic_constraints(
+    asn1_parser_t *, x509_cert_t *);
+static asinine_err_t parse_extn_subject_alt_name(
     asn1_parser_t *, x509_cert_t *);
 
 static const algorithm_lookup_t algorithms[] = {
@@ -110,16 +105,10 @@ static const algorithm_lookup_t algorithms[] = {
 };
 
 static const extension_lookup_t extensions[] = {
-    {
-        ASN1_OID_FROM_CONST(OID_EXTN_KEY_USAGE), &parse_extn_key_usage,
-    },
-    {
-        ASN1_OID_FROM_CONST(OID_EXTN_EXT_KEY_USAGE), &parse_extn_ext_key_usage,
-    },
-    {
-        ASN1_OID_FROM_CONST(OID_EXTN_BASIC_CONSTRAINTS),
-        &parse_extn_basic_constraints,
-    },
+    {ASN1_OID(2, 5, 29, 15), &parse_extn_key_usage},
+    {ASN1_OID(2, 5, 29, 17), &parse_extn_subject_alt_name},
+    {ASN1_OID(2, 5, 29, 19), &parse_extn_basic_constraints},
+    {ASN1_OID(2, 5, 29, 37), &parse_extn_ext_key_usage},
 };
 
 asinine_err_t
@@ -171,7 +160,6 @@ x509_parse(asn1_parser_t *parser, x509_cert_t *cert) {
 
 	// issuer
 	RETURN_ON_ERROR(x509_parse_name(parser, &cert->issuer));
-
 	// validity
 	RETURN_ON_ERROR(parse_validity(parser, cert));
 
@@ -324,6 +312,9 @@ parse_extensions(asn1_parser_t *parser, x509_cert_t *cert) {
 			RETURN_ON_ERROR(extn_parser(parser, cert));
 			RETURN_ON_ERROR(asn1_pop(parser));
 		} else if (critical) {
+			char buf[256];
+			asn1_oid_to_string(buf, sizeof(buf), &id);
+			fprintf(stderr, "%s\n", buf);
 			return ASININE_ERROR_UNSUPPORTED;
 		}
 
@@ -503,4 +494,9 @@ parse_extn_basic_constraints(asn1_parser_t *parser, x509_cert_t *cert) {
 
 	cert->path_len_constraint = (int8_t)value;
 	return asn1_pop(parser);
+}
+
+static asinine_err_t
+parse_extn_subject_alt_name(asn1_parser_t *parser, x509_cert_t *cert) {
+	return x509_parse_alt_names(parser, &cert->subject_alt_names);
 }

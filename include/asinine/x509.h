@@ -13,6 +13,7 @@ extern "C" {
 #include "asinine/asn1.h"
 
 #define X509_MAX_RDNS (13)
+#define X509_MAX_ALT_NAMES (128)
 
 typedef struct x509_cert x509_cert_t;
 
@@ -72,6 +73,24 @@ typedef struct x509_name {
 	x509_rdn_t rdns[X509_MAX_RDNS];
 } x509_name_t;
 
+typedef enum x509_alt_name_type {
+	X509_ALT_NAME_RFC822NAME = 1,
+	X509_ALT_NAME_DNSNAME    = 2,
+	X509_ALT_NAME_URI        = 6,
+	X509_ALT_NAME_IP         = 7,
+} x509_alt_name_type_t;
+
+typedef struct {
+	x509_alt_name_type_t type;
+	size_t length;
+	const uint8_t *data;
+} x509_alt_name_t;
+
+typedef struct x509_alt_names {
+	size_t num;
+	x509_alt_name_t names[X509_MAX_ALT_NAMES];
+} x509_alt_names_t;
+
 struct x509_cert {
 	x509_version_t version;
 	x509_algorithm_t algorithm;
@@ -80,6 +99,7 @@ struct x509_cert {
 	x509_name_t subject;
 	asn1_time_t valid_from;
 	asn1_time_t valid_to;
+	x509_alt_names_t subject_alt_names;
 	uint16_t key_usage;
 	uint8_t ext_key_usage;
 	bool deprecated;
@@ -95,6 +115,8 @@ ASININE_API asinine_err_t x509_parse_optional_name(
 ASININE_API void x509_sort_name(x509_name_t *name);
 ASININE_API bool x509_name_eq(
     const x509_name_t *a, const x509_name_t *b, const char **err);
+ASININE_API asinine_err_t x509_parse_alt_names(
+    asn1_parser_t *parser, x509_alt_names_t *alt_names);
 
 #ifdef __cplusplus
 }

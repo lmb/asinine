@@ -44,7 +44,7 @@ asn1_init(asn1_parser_t *parser, const uint8_t *data, size_t length) {
 }
 
 void
-asn1_skip_unsafe(asn1_parser_t *parser) {
+asn1_unsafe_skip(asn1_parser_t *parser) {
 	parser->current = parser->end;
 }
 

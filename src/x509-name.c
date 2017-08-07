@@ -153,3 +153,82 @@ x509_name_eq(const x509_name_t *a, const x509_name_t *b, const char **reason) {
 	set_reason(reason, NULL);
 	return true;
 }
+
+asinine_err_t
+x509_parse_alt_names(asn1_parser_t *parser, x509_alt_names_t *alt_names) {
+	const asn1_token_t *token = &parser->token;
+
+	*alt_names = (x509_alt_names_t){0};
+
+	RETURN_ON_ERROR(asn1_push_seq(parser));
+
+	// Alternative names must contain at least one name
+	size_t i = 0;
+	do {
+		NEXT_TOKEN(parser);
+
+		asn1_type_t type = token->type;
+		if (type.class != ASN1_CLASS_CONTEXT ||
+		    type.encoding != ASN1_ENCODING_PRIMITIVE) {
+			return ASININE_ERROR_INVALID;
+		}
+
+		switch ((uint8_t)type.tag) {
+		case X509_ALT_NAME_RFC822NAME:
+			if (token->length == 0) {
+				return ASININE_ERROR_INVALID;
+			}
+			break;
+		case X509_ALT_NAME_DNSNAME:
+			if (token->length == 0) {
+				return ASININE_ERROR_INVALID;
+			}
+			if (token->length == 1 && token->data[0] == ' ') {
+				return ASININE_ERROR_INVALID;
+			}
+			break;
+		case X509_ALT_NAME_URI:
+			if (token->length == 0) {
+				return ASININE_ERROR_INVALID;
+			}
+			// TODO: "The name
+			//    MUST NOT be a relative URI, and it MUST follow the URI syntax
+			//    and encoding rules specified in [RFC3986].  The name MUST
+			//    include both a scheme (e.g., "http" or "ftp") and a
+			//    scheme-specific-part.  URIs that include an authority
+			//    ([RFC3986], Section 3.2) MUST include a fully qualified domain
+			//    name or IP address as the host.
+			//    As specified in [RFC3986], the scheme name is not
+			//    case-sensitive (e.g., "http" is equivalent to "HTTP").  The
+			//    host part, if present, is also not case-sensitive, but other
+			//    components of the scheme-specific-part may be
+			//    case-sensitive."
+			break;
+		case X509_ALT_NAME_IP:
+			if (token->length != 4 && token->length != 16) {
+				return ASININE_ERROR_INVALID;
+			}
+			break;
+		case 0: // otherName
+		case 3: // x400Address
+		case 4: // directoryAddress
+		case 5: // ediPartyName
+		case 8: // registeredID
+			return ASININE_ERROR_UNSUPPORTED;
+			break;
+		default:
+			return ASININE_ERROR_INVALID;
+		}
+
+		alt_names->names[i].type   = (x509_alt_name_type_t)type.tag;
+		alt_names->names[i].data   = token->data;
+		alt_names->names[i].length = token->length;
+		alt_names->num             = ++i;
+	} while (!asn1_eof(parser) && i < X509_MAX_ALT_NAMES);
+
+	if (!asn1_eof(parser)) {
+		return ASININE_ERROR_MEMORY;
+	}
+
+	return asn1_pop(parser);
+}

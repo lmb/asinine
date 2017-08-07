@@ -133,7 +133,7 @@ ASININE_API asinine_err_t asn1_push_seq(asn1_parser_t *parser);
  *         is possible to skip invalid tokens, which would have led to an error
  *         on a full parse.
  */
-ASININE_API void asn1_skip_unsafe(asn1_parser_t *parser);
+ASININE_API void asn1_unsafe_skip(asn1_parser_t *parser);
 ASININE_API bool asn1_eof(const asn1_parser_t *parser);
 ASININE_API bool asn1_end(const asn1_parser_t *parser);
 
