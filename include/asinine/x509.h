@@ -90,6 +90,8 @@ struct x509_cert {
 ASININE_API asinine_err_t x509_parse(asn1_parser_t *parser, x509_cert_t *cert);
 ASININE_API asinine_err_t x509_parse_name(
     asn1_parser_t *parser, x509_name_t *name);
+ASININE_API asinine_err_t x509_parse_optional_name(
+    asn1_parser_t *parser, x509_name_t *name);
 ASININE_API void x509_sort_name(x509_name_t *name);
 ASININE_API bool x509_name_eq(
     const x509_name_t *a, const x509_name_t *b, const char **err);

@@ -8,23 +8,34 @@
 #include "asinine/x509.h"
 
 /**
-* Parse a X.509 Name.
-*
-* A Name is structured as follows:
-*
-*   SEQUENCE OF
-*     SET OF (one or more) (V3 with subjectAltName: zero) (= RDN)
-*       SEQUENCE (= AVA)
-*         OID Type
-*         ANY Value
-*
-* @param  parser Current position in the ASN.1 structure
-* @param  name Name structure to parse into
-* @return ASININE_OK on success, other err
-or code otherwise.
-*/
+ * Parse an X.509 Name.
+ *
+ * A Name is structured as follows:
+ *
+ *   SEQUENCE OF
+ *     SET OF (one or more) (V3 with subjectAltName: zero) (= RDN)
+ *       SEQUENCE (= AVA)
+ *         OID Type
+ *         ANY Value
+ *
+ * @param  parser Current position in the ASN.1 structure
+ * @param  name Name structure to parse into
+ * @return ASININE_OK on success, other error code otherwise.
+ */
 asinine_err_t
 x509_parse_name(asn1_parser_t *parser, x509_name_t *name) {
+	asinine_err_t err = x509_parse_optional_name(parser, name);
+	if (err != ASININE_OK) {
+		return err;
+	}
+	return name->num > 0 ? ASININE_OK : ASININE_ERROR_INVALID;
+}
+
+/**
+ * Parses an X.509 Name, which may be empty.
+ */
+asinine_err_t
+x509_parse_optional_name(asn1_parser_t *parser, x509_name_t *name) {
 	const asn1_token_t *token = &parser->token;
 
 	*name = (x509_name_t){0};

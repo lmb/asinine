@@ -176,8 +176,7 @@ x509_parse(asn1_parser_t *parser, x509_cert_t *cert) {
 	RETURN_ON_ERROR(parse_validity(parser, cert));
 
 	// subject
-	// TODO: Sequence might be zero-length, with name in subjectAltName
-	RETURN_ON_ERROR(x509_parse_name(parser, &cert->subject));
+	RETURN_ON_ERROR(x509_parse_optional_name(parser, &cert->subject));
 
 	// subjectPublicKeyInfo
 	NEXT_TOKEN(parser);
@@ -204,6 +203,16 @@ x509_parse(asn1_parser_t *parser, x509_cert_t *cert) {
 
 	// TODO: Do something with the signature
 	if (!asn1_is_bitstring(&parser->token)) {
+		return ASININE_ERROR_INVALID;
+	}
+
+	// RFC5280 4.1.2.6.
+	if (cert->is_ca && cert->subject.num == 0) {
+		return ASININE_ERROR_INVALID;
+	}
+
+	if ((cert->key_usage & X509_KEYUSE_CRL_SIGN) != 0 &&
+	    cert->subject.num == 0) {
 		return ASININE_ERROR_INVALID;
 	}
 
