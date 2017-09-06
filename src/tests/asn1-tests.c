@@ -132,6 +132,8 @@ test_asn1_bitstring_decode(void) {
 	check(buf[0] == 0);
 	check(buf[1] == 0);
 
+	check_OK(asn1_bitstring(&token2, NULL, 0));
+
 	return 0;
 }
 

@@ -182,22 +182,20 @@ asn1_bitstring(const asn1_token_t *token, uint8_t *buf, const size_t num) {
 	 * byte must not be 0, since it is not the smallest possible encoding.
 	 * An empty bitstring is encoded as first byte 0 and no further data.
 	 */
-	uint8_t unused_bits;
-	size_t i, j;
 
 	// 8.6.2.2 and 10.2
 	if (token->length < 1 || token->type.encoding != ASN1_ENCODING_PRIMITIVE) {
 		return ASININE_ERROR_MALFORMED;
 	}
 
-	if (token->length - 1 > num) {
+	if (buf != NULL && token->length - 1 > num) {
 		return ASININE_ERROR_MEMORY;
 	}
 
 	memset(buf, 0, num);
-	unused_bits = token->data[0];
 
 	// 8.6.2.2
+	uint8_t unused_bits = token->data[0];
 	if (unused_bits > 7) {
 		return ASININE_ERROR_MALFORMED;
 	}
@@ -221,7 +219,7 @@ asn1_bitstring(const asn1_token_t *token, uint8_t *buf, const size_t num) {
 		}
 	}
 
-	for (i = 1, j = 0; i < token->length; i++, j++) {
+	for (size_t i = 1, j = 0; i < token->length && j < num; i++, j++) {
 		const uint8_t data = token->data[i];
 
 		buf[j] = (uint8_t)(lookup[data & 0xf] << 4) | lookup[data >> 4];
