@@ -10,8 +10,8 @@
 #include "asinine/asn1.h"
 #include "asinine/macros.h"
 
-#include "asinine/tests/asn1.h"
-#include "asinine/tests/test.h"
+#include "tests/asn1.h"
+#include "tests/test.h"
 
 #define TEST_OID1 ASN1_CONST_OID(1, 1, 2, 4)
 #define TEST_OID2 ASN1_CONST_OID(2, 999, 1)

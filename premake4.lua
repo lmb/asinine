@@ -43,5 +43,6 @@ solution "Asinine"
 	project "tests"
 		kind "ConsoleApp"
 		language "C"
+		links { "asinine" }
 
-		files { "include/asinine/*.h", "src/*.c", "src/tests/*.c" }
+		files { "include/tests/*.h", "src/tests/*.c" }

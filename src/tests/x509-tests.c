@@ -7,9 +7,9 @@
 
 #include "asinine/x509.h"
 
-#include "asinine/tests/certs.h"
-#include "asinine/tests/test.h"
-#include "asinine/tests/x509.h"
+#include "tests/certs.h"
+#include "tests/test.h"
+#include "tests/x509.h"
 
 static char *
 test_x509_certs(void) {

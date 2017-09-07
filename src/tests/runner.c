@@ -4,8 +4,8 @@
 
 #include <stdio.h>
 
-#include "asinine/tests/asn1.h"
-#include "asinine/tests/x509.h"
+#include "tests/asn1.h"
+#include "tests/x509.h"
 
 #define run_test_set(set) \
 	do { \
