@@ -187,12 +187,24 @@ asn1_force_push(asn1_parser_t *parser) {
 		// Empty tokens are valid, we just have to make sure that eof returns
 		// true for them.
 		parser->end = parser->current;
+		return ASININE_OK;
+	}
+
+	if (asn1_is_bitstring(token)) {
+		// Bitstrings have a pesky leading byte which indicates how many
+		// bits in the last data byte are unused. This isn't part of the
+		// encoded data and needs to be skipped.
+		asinine_err_t err;
+		if ((err = asn1_bitstring(token, NULL, 0)) != ASININE_OK) {
+			return err;
+		}
+		parser->current = token->data + 1;
 	} else {
 		// We've already skipped to the end of the token, so reset the current
 		// position to the start of the token's data.
 		parser->current = token->data;
-		parser->end     = token->data + token->length;
 	}
+	parser->end = token->data + token->length;
 
 	return ASININE_OK;
 }
