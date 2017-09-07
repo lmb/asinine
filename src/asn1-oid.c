@@ -7,9 +7,7 @@
 #include <string.h>
 
 #include "asinine/asn1.h"
-
-#define MIN(a, b) (((a) < (b)) ? a : b)
-#define NUM(x) (sizeof x / sizeof(x)[0])
+#include "internal/macros.h"
 
 #define OID_MINIMUM_ARCS 2
 

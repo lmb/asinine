@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include "asinine/asn1.h"
+#include "internal/macros.h"
 
 #if ASN1_MAXIMUM_DEPTH > UINT8_MAX
 #error Maximum ASN.1 depth must be smaller than UINT8_MAX
@@ -30,8 +31,6 @@
 #define CONTENT_LENGTH_LONG_MIN (128)
 
 #define CONTENT_LENGTH_IS_LONG_FORM(x) ((x)&CONTENT_LENGTH_LONG_MASK)
-
-#define NUM(x) (sizeof x / sizeof *(x))
 
 void
 asn1_init(asn1_parser_t *parser, const uint8_t *data, size_t length) {

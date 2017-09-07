@@ -7,6 +7,7 @@
 #include <string.h>
 
 #include "asinine/asn1.h"
+#include "internal/macros.h"
 
 #define SECONDS_PER_YEAR (31536000)
 #define SECONDS_PER_MONTH (2629744)
@@ -17,7 +18,6 @@
 /** (Y,) Y, M, D, H, M, S "Z" */
 #define MIN_TIME_LENGTH (6 * 2 + 1)
 #define MAX_TIME_LENGTH (7 * 2 + 1)
-#define NUM(x) (sizeof x / sizeof(x)[0])
 
 static bool
 validate_string(const asn1_token_t *token) {

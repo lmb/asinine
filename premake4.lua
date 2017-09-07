@@ -24,7 +24,7 @@ solution "Asinine"
 		kind "StaticLib"
 		language "C"
 
-		files { "include/asinine/*.h", "src/*.c" }
+		files { "include/asinine/*.h", "include/internal/*.h", "src/*.c" }
 
 	project "dump"
 		kind "ConsoleApp"

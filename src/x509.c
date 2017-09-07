@@ -8,8 +8,7 @@
 
 #include "asinine/dsl.h"
 #include "asinine/x509.h"
-
-#define NUM(x) (sizeof(x) / sizeof(*x))
+#include "internal/macros.h"
 
 // Common OID prefixes
 #define _OID_KEY_USAGE 1, 3, 6, 1, 5, 5, 7, 3

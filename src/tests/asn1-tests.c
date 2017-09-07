@@ -9,14 +9,12 @@
 
 #include "asinine/asn1.h"
 #include "asinine/macros.h"
-
+#include "internal/macros.h"
 #include "tests/asn1.h"
 #include "tests/test.h"
 
 #define TEST_OID1 ASN1_CONST_OID(1, 1, 2, 4)
 #define TEST_OID2 ASN1_CONST_OID(2, 999, 1)
-
-#define NUM(x) (sizeof(x) / sizeof(x[0]))
 
 static char *
 test_asn1_oid_decode(void) {
