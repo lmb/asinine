@@ -9,12 +9,34 @@
 
 #include "asinine/x509.h"
 
+void
+dump_name(const x509_name_t *name) {
+	char buf[256];
+
+	for (size_t i = 0; i < name->num; i++) {
+		const x509_rdn_t *rdn = &name->rdns[i];
+
+		if (asn1_oid_to_string(buf, sizeof(buf), &rdn->oid) >= sizeof(buf)) {
+			printf("  %s...: ", buf);
+		} else {
+			printf("  %s: ", buf);
+		}
+
+		asinine_err_t err;
+		if ((err = asn1_string(&rdn->value, buf, sizeof(buf))) != ASININE_OK) {
+			printf("%s\n", asinine_strerror(err));
+		} else {
+			printf("%s\n", buf);
+		}
+	}
+}
+
 int
 dump_certificates(const uint8_t *contents, size_t length) {
 	x509_cert_t *cert = calloc(1, sizeof(x509_cert_t));
 	if (cert == NULL) {
 		fprintf(stderr, "Failed to allocate memory\n");
-		return 0;
+		return 1;
 	}
 
 	int res = 0;
@@ -51,23 +73,10 @@ dump_certificates(const uint8_t *contents, size_t length) {
 		printf(", to: %s\n", buf);
 
 		printf("Issuer:\n");
-		for (size_t i = 0; i < cert->issuer.num; i++) {
-			const x509_rdn_t *rdn = &cert->issuer.rdns[i];
+		dump_name(&cert->issuer);
 
-			if (asn1_oid_to_string(buf, sizeof(buf), &rdn->oid) >=
-			    sizeof(buf)) {
-				printf("  %s...: ", buf);
-			} else {
-				printf("  %s: ", buf);
-			}
-
-			if ((err = asn1_string(&rdn->value, buf, sizeof(buf))) !=
-			    ASININE_OK) {
-				printf("%s\n", asinine_strerror(err));
-			} else {
-				printf("%s\n", buf);
-			}
-		}
+		printf("Subject:\n");
+		dump_name(&cert->issuer);
 	}
 
 exit:
