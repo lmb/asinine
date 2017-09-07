@@ -2,12 +2,14 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#include <inttypes.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "asinine/x509.h"
+#include "internal/utils.h"
 
 void
 dump_name(const x509_name_t *name) {
@@ -54,7 +56,8 @@ dump_certificates(const uint8_t *contents, size_t length) {
 		}
 
 		printf("---\n");
-		printf("Version: %d, Algo: %d\n", cert->version, cert->algorithm);
+		printf("Version: %d, Algo: %d\n", cert->version,
+		    cert->signature_algorithm);
 
 		if (asn1_time_to_string(buf, sizeof(buf), &cert->valid_from) >=
 		    sizeof(buf)) {
@@ -77,14 +80,29 @@ dump_certificates(const uint8_t *contents, size_t length) {
 
 		printf("Subject:\n");
 		dump_name(&cert->issuer);
+
+		printf("Public key: %d\n", cert->pubkey.algorithm);
+		switch (cert->pubkey.algorithm) {
+		case X509_PUBKEY_RSA:
+			printf("  Public exponent:\n");
+			hexdump(cert->pubkey.key.rsa.e, cert->pubkey.key.rsa.e_num, 1);
+			printf("  Modulus:\n");
+			hexdump(cert->pubkey.key.rsa.n, cert->pubkey.key.rsa.n_num, 1);
+			break;
+		case X509_PUBKEY_ECDSA:
+			printf("Point:\n");
+			hexdump(cert->pubkey.key.ecdsa.point,
+			    cert->pubkey.key.ecdsa.point_num, 1);
+			break;
+		default:
+			printf("NOT IMPLEMENTED\n");
+		}
 	}
 
 exit:
 	free(cert);
 	return res;
 }
-
-static uint8_t *load(FILE *fd, size_t *length);
 
 int
 main(int argc, const char *argv[]) {
@@ -113,24 +131,4 @@ main(int argc, const char *argv[]) {
 	int res = dump_certificates(contents, length);
 	free(contents);
 	return res;
-}
-
-static uint8_t *
-load(FILE *fd, size_t *length) {
-#define BUF_SIZE (1024 * 1024)
-	uint8_t *contents = calloc(1, BUF_SIZE);
-	if (contents == NULL) {
-		printf("Could not allocate memory\n");
-		return NULL;
-	}
-
-	*length = fread(contents, 1, BUF_SIZE, fd);
-	if (*length < BUF_SIZE) {
-		return contents;
-	}
-
-	fprintf(stderr, "Input is longer than %d bytes\n", BUF_SIZE);
-	free(contents);
-	return NULL;
-#undef BUF_SIZE
 }

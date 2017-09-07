@@ -267,6 +267,30 @@ asn1_int(const asn1_token_t *token, asn1_word_t *value) {
 	return ASININE_OK;
 }
 
+asinine_err_t
+asn1_uint_buf(const asn1_token_t *token, const uint8_t **buf, size_t *num) {
+	asinine_err_t err = asn1_int(token, NULL);
+	if (err != ASININE_OK) {
+		return err;
+	}
+
+	if ((token->data[0] & 0x80) != 0) {
+		// This is a signed integer
+		return ASININE_ERROR_INVALID;
+	}
+
+	if (token->data[0] == 0) {
+		// Remove padding
+		*buf = token->data + 1;
+		*num = token->length - 1;
+		return ASININE_OK;
+	}
+
+	*buf = token->data;
+	*num = token->length;
+	return ASININE_OK;
+}
+
 static inline bool
 is_leap_year(int32_t year) {
 	return year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
@@ -417,6 +441,13 @@ asinine_strerror(asinine_err_t err) {
 		case_for_tag(ASININE_ERROR_INVALID);
 		case_for_tag(ASININE_ERROR_INVALID_UNTRUSTED);
 		case_for_tag(ASININE_ERROR_INVALID_EXPIRED);
+		case_for_tag(ASININE_ERROR_INVALID_ALGORITHM);
+		case_for_tag(ASININE_ERROR_INVALID_ISSUER);
+		case_for_tag(ASININE_ERROR_INVALID_VERSION);
+		case_for_tag(ASININE_ERROR_INVALID_NOT_CA);
+		case_for_tag(ASININE_ERROR_INVALID_PATH_LEN);
+		case_for_tag(ASININE_ERROR_INVALID_KEYUSE);
+		case_for_tag(ASININE_ERROR_DEPRECATED);
 	default:
 		return "UNKNOWN";
 	}

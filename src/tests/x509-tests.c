@@ -34,7 +34,7 @@ test_x509_certs(void) {
 		}
 
 		if (!asn1_end(&parser)) {
-			printf("> %s (%zu): did not consume input", host, i);
+			printf("> %s (#%zu): did not consume input\n", host, i);
 			errors = true;
 		}
 	}

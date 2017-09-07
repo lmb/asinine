@@ -9,6 +9,7 @@
 #include "asinine/dsl.h"
 #include "asinine/x509.h"
 #include "internal/macros.h"
+#include "internal/x509.h"
 
 // Common OID prefixes
 #define _OID_KEY_USAGE 1, 3, 6, 1, 5, 5, 7, 3
@@ -35,10 +36,10 @@ typedef asinine_err_t (*delegate_parser_t)(asn1_parser_t *, x509_cert_t *);
 
 typedef struct {
 	asn1_oid_t oid;
-	x509_algorithm_t type;
+	x509_sig_algo_t algorithm;
 	delegate_parser_t parser;
 	bool deprecated;
-} algorithm_lookup_t;
+} signature_lookup_t;
 
 typedef struct {
 	asn1_oid_t oid;
@@ -60,45 +61,45 @@ static asinine_err_t parse_extn_basic_constraints(
 static asinine_err_t parse_extn_subject_alt_name(
     asn1_parser_t *, x509_cert_t *);
 
-static const algorithm_lookup_t algorithms[] = {
+static const signature_lookup_t signature_algorithms[] = {
     {
-        ASN1_OID(1, 2, 840, 113549, 1, 1, 2), X509_ALGORITHM_MD2_RSA,
+        ASN1_OID(1, 2, 840, 113549, 1, 1, 2), X509_SIGNATURE_MD2_RSA,
         &parse_null_or_empty_args, true,
     },
     {
-        ASN1_OID(1, 2, 840, 113549, 1, 1, 4), X509_ALGORITHM_MD5_RSA,
+        ASN1_OID(1, 2, 840, 113549, 1, 1, 4), X509_SIGNATURE_MD5_RSA,
         &parse_null_or_empty_args, true,
     },
     {
-        ASN1_OID(1, 2, 840, 113549, 1, 1, 5), X509_ALGORITHM_SHA1_RSA,
+        ASN1_OID(1, 2, 840, 113549, 1, 1, 5), X509_SIGNATURE_SHA1_RSA,
         &parse_null_or_empty_args, true,
     },
     {
-        ASN1_OID(1, 2, 840, 113549, 1, 1, 11), X509_ALGORITHM_SHA256_RSA,
+        ASN1_OID(1, 2, 840, 113549, 1, 1, 11), X509_SIGNATURE_SHA256_RSA,
         &parse_null_or_empty_args, false,
     },
     {
-        ASN1_OID(1, 2, 840, 113549, 1, 1, 12), X509_ALGORITHM_SHA384_RSA,
+        ASN1_OID(1, 2, 840, 113549, 1, 1, 12), X509_SIGNATURE_SHA384_RSA,
         &parse_null_or_empty_args, false,
     },
     {
-        ASN1_OID(1, 2, 840, 113549, 1, 1, 13), X509_ALGORITHM_SHA512_RSA,
+        ASN1_OID(1, 2, 840, 113549, 1, 1, 13), X509_SIGNATURE_SHA512_RSA,
         &parse_null_or_empty_args, false,
     },
     {
-        ASN1_OID(1, 2, 840, 10045, 4, 3, 2), X509_ALGORITHM_SHA256_ECDSA,
+        ASN1_OID(1, 2, 840, 10045, 4, 3, 2), X509_SIGNATURE_SHA256_ECDSA,
         &parse_empty_args, false,
     },
     {
-        ASN1_OID(1, 2, 840, 10045, 4, 3, 3), X509_ALGORITHM_SHA384_ECDSA,
+        ASN1_OID(1, 2, 840, 10045, 4, 3, 3), X509_SIGNATURE_SHA384_ECDSA,
         &parse_empty_args, false,
     },
     {
-        ASN1_OID(1, 2, 840, 10045, 4, 3, 3), X509_ALGORITHM_SHA512_ECDSA,
+        ASN1_OID(1, 2, 840, 10045, 4, 3, 3), X509_SIGNATURE_SHA512_ECDSA,
         &parse_empty_args, false,
     },
     {
-        ASN1_OID(2, 16, 840, 1, 101, 3, 4, 3, 2), X509_ALGORITHM_SHA256_DSA,
+        ASN1_OID(2, 16, 840, 1, 101, 3, 4, 3, 2), X509_SIGNATURE_SHA256_DSA,
         &parse_empty_args, false,
     },
 };
@@ -166,11 +167,8 @@ x509_parse(asn1_parser_t *parser, x509_cert_t *cert) {
 	RETURN_ON_ERROR(x509_parse_optional_name(parser, &cert->subject));
 
 	// subjectPublicKeyInfo
-	NEXT_TOKEN(parser);
-
-	if (!asn1_is_int(&parser->token) && !asn1_is_sequence(&parser->token)) {
-		return ASININE_ERROR_INVALID;
-	}
+	RETURN_ON_ERROR(x509_parse_pubkey(
+	    parser, &cert->pubkey, &cert->pubkey_params, &cert->has_pubkey_params));
 
 	// Optional items (X.509 v2 and up)
 	RETURN_ON_ERROR(parse_optional(parser, cert));
@@ -204,18 +202,6 @@ x509_parse(asn1_parser_t *parser, x509_cert_t *cert) {
 	}
 
 	return asn1_pop(parser);
-}
-
-static const algorithm_lookup_t *
-find_algorithm(const asn1_oid_t *oid) {
-	size_t i;
-	for (i = 0; i < NUM(algorithms); i++) {
-		if (asn1_oid_cmp(oid, &(algorithms[i].oid)) == 0) {
-			return &algorithms[i];
-		}
-	}
-
-	return NULL;
 }
 
 static asinine_err_t
@@ -323,6 +309,18 @@ parse_extensions(asn1_parser_t *parser, x509_cert_t *cert) {
 	return asn1_pop(parser);
 }
 
+static const signature_lookup_t *
+find_signature_algorithm(const asn1_oid_t *oid) {
+	size_t i;
+	for (i = 0; i < NUM(signature_algorithms); i++) {
+		if (asn1_oid_cmp(oid, &(signature_algorithms[i].oid)) == 0) {
+			return &signature_algorithms[i];
+		}
+	}
+
+	return NULL;
+}
+
 static asinine_err_t
 parse_signature_info(
     asn1_parser_t *parser, x509_cert_t *cert, asn1_token_t *sig) {
@@ -340,13 +338,13 @@ parse_signature_info(
 	asn1_oid_t oid;
 	asn1_oid(token, &oid);
 
-	const algorithm_lookup_t *result = find_algorithm(&oid);
+	const signature_lookup_t *result = find_signature_algorithm(&oid);
 	if (result == NULL) {
 		return ASININE_ERROR_UNSUPPORTED;
 	}
 
-	cert->algorithm  = result->type;
-	cert->deprecated = cert->deprecated || result->deprecated;
+	cert->signature_algorithm = result->algorithm;
+	cert->deprecated          = cert->deprecated || result->deprecated;
 
 	RETURN_ON_ERROR(result->parser(parser, cert));
 
@@ -368,7 +366,6 @@ parse_validity(asn1_parser_t *parser, x509_cert_t *cert) {
 
 	// Valid to
 	NEXT_TOKEN(parser);
-
 	if (!asn1_is_time(token)) {
 		return ASININE_ERROR_INVALID;
 	}
@@ -379,9 +376,13 @@ parse_validity(asn1_parser_t *parser, x509_cert_t *cert) {
 
 static asinine_err_t
 parse_null_or_empty_args(asn1_parser_t *parser, x509_cert_t *cert) {
-	const asn1_token_t *const token = &parser->token;
-
 	(void)cert;
+	return _x509_parse_null_or_empty_args(parser);
+}
+
+asinine_err_t
+_x509_parse_null_or_empty_args(asn1_parser_t *parser) {
+	const asn1_token_t *const token = &parser->token;
 
 	// There is at least one implementation which skips the null.
 	// This deviates from the spec.

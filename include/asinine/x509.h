@@ -15,27 +15,64 @@ extern "C" {
 #define X509_MAX_RDNS (13)
 #define X509_MAX_ALT_NAMES (128)
 
-typedef struct x509_cert x509_cert_t;
-
 typedef enum x509_version {
 	X509_V1 = 0,
 	X509_V2 = 1,
 	X509_V3 = 2
 } x509_version_t;
 
-typedef enum x509_algorithm {
-	X509_ALGORITHM_INVALID = 0,
-	X509_ALGORITHM_MD2_RSA,
-	X509_ALGORITHM_MD5_RSA,
-	X509_ALGORITHM_SHA1_RSA,
-	X509_ALGORITHM_SHA256_RSA,
-	X509_ALGORITHM_SHA384_RSA,
-	X509_ALGORITHM_SHA512_RSA,
-	X509_ALGORITHM_SHA256_ECDSA,
-	X509_ALGORITHM_SHA384_ECDSA,
-	X509_ALGORITHM_SHA512_ECDSA,
-	X509_ALGORITHM_SHA256_DSA,
-} x509_algorithm_t;
+typedef enum x509_sig_algo {
+	X509_SIGNATURE_INVALID = 0,
+	X509_SIGNATURE_MD2_RSA,
+	X509_SIGNATURE_MD5_RSA,
+	X509_SIGNATURE_SHA1_RSA,
+	X509_SIGNATURE_SHA256_RSA,
+	X509_SIGNATURE_SHA384_RSA,
+	X509_SIGNATURE_SHA512_RSA,
+	X509_SIGNATURE_SHA256_ECDSA,
+	X509_SIGNATURE_SHA384_ECDSA,
+	X509_SIGNATURE_SHA512_ECDSA,
+	X509_SIGNATURE_SHA256_DSA,
+} x509_sig_algo_t;
+
+typedef struct x509_pubkey_rsa {
+	const uint8_t *n;
+	size_t n_num;
+	const uint8_t *e;
+	size_t e_num;
+} x509_pubkey_rsa_t;
+
+typedef enum x509_ecdsa_curve {
+	X509_ECDSA_CURVE_INVALID = 0,
+	X509_ECDSA_CURVE_SECP256R1,
+	X509_ECDSA_CURVE_SECP384R1,
+	X509_ECDSA_CURVE_SECP521R1,
+} x509_ecdsa_curve_t;
+
+typedef struct x509_pubkey_ecdsa {
+	const uint8_t *point;
+	size_t point_num;
+} x509_pubkey_ecdsa_t;
+
+typedef enum x509_pubkey_algo {
+	X509_PUBKEY_INVALID = 0,
+	X509_PUBKEY_RSA,
+	X509_PUBKEY_ECDSA,
+} x509_pubkey_algo_t;
+
+typedef union x509_pubkey_params {
+	// The null values for any pubkey params must
+	// signify an invalid state.
+	x509_ecdsa_curve_t ecdsa_curve;
+} x509_pubkey_params_t;
+
+typedef struct x509_pubkey {
+	x509_pubkey_algo_t algorithm;
+	union {
+		x509_pubkey_rsa_t rsa;
+		x509_pubkey_ecdsa_t ecdsa;
+	} key;
+} x509_pubkey_t;
 
 /**
  * Key usage flags
@@ -91,12 +128,15 @@ typedef struct x509_alt_names {
 	x509_alt_name_t names[X509_MAX_ALT_NAMES];
 } x509_alt_names_t;
 
-struct x509_cert {
+typedef struct x509_cert {
 	x509_version_t version;
-	x509_algorithm_t algorithm;
+	x509_sig_algo_t signature_algorithm;
 	asn1_token_t certificate;
 	x509_name_t issuer;
 	x509_name_t subject;
+	x509_pubkey_t pubkey;
+	bool has_pubkey_params;
+	x509_pubkey_params_t pubkey_params;
 	asn1_time_t valid_from;
 	asn1_time_t valid_to;
 	x509_alt_names_t subject_alt_names;
@@ -105,13 +145,15 @@ struct x509_cert {
 	bool deprecated;
 	bool is_ca;
 	int8_t path_len_constraint;
-};
+} x509_cert_t;
 
 ASININE_API asinine_err_t x509_parse(asn1_parser_t *parser, x509_cert_t *cert);
 ASININE_API asinine_err_t x509_parse_name(
     asn1_parser_t *parser, x509_name_t *name);
 ASININE_API asinine_err_t x509_parse_optional_name(
     asn1_parser_t *parser, x509_name_t *name);
+ASININE_API asinine_err_t x509_parse_pubkey(asn1_parser_t *parser,
+    x509_pubkey_t *pubkey, x509_pubkey_params_t *params, bool *has_params);
 ASININE_API void x509_sort_name(x509_name_t *name);
 ASININE_API bool x509_name_eq(
     const x509_name_t *a, const x509_name_t *b, const char **err);

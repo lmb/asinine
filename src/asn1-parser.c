@@ -60,7 +60,7 @@ asn1_end(const asn1_parser_t *parser) {
 static inline bool
 advance_pos(asn1_parser_t *parser, size_t num) {
 	// num is under attacker control
-	if ((size_t)(parser->end - parser->current) <= num) {
+	if ((size_t)((const uint8_t *)parser->end - parser->current) <= num) {
 		return false;
 	}
 
@@ -72,7 +72,7 @@ asinine_err_t
 asn1_next(asn1_parser_t *parser) {
 	asn1_token_t *const token = &parser->token;
 
-	if (parser->current >= parser->end) {
+	if (parser->current >= (const uint8_t *)parser->end) {
 		return ASININE_ERROR_MALFORMED;
 	}
 

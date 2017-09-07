@@ -37,7 +37,14 @@ typedef enum asinine_err {
 	ASININE_ERROR_UNSUPPORTED_EXTN  = -32,
 	ASININE_ERROR_INVALID           = -40,
 	ASININE_ERROR_INVALID_UNTRUSTED = -41,
-	ASININE_ERROR_INVALID_EXPIRED   = -42
+	ASININE_ERROR_INVALID_EXPIRED   = -42,
+	ASININE_ERROR_INVALID_ALGORITHM = -43,
+	ASININE_ERROR_INVALID_ISSUER    = -44,
+	ASININE_ERROR_INVALID_VERSION   = -45,
+	ASININE_ERROR_INVALID_NOT_CA    = -46,
+	ASININE_ERROR_INVALID_PATH_LEN  = -47,
+	ASININE_ERROR_INVALID_KEYUSE    = -48,
+	ASININE_ERROR_DEPRECATED        = -70,
 } asinine_err_t;
 
 /**
@@ -101,6 +108,7 @@ typedef struct asn1_type {
 } asn1_type_t;
 
 typedef struct asn1_token {
+	const uint8_t *start;
 	const uint8_t *data;
 	size_t length;
 	asn1_type_t type;
@@ -108,8 +116,8 @@ typedef struct asn1_token {
 
 typedef struct asn1_parser {
 	const uint8_t *current;
-	const uint8_t *end;
-	const uint8_t *stack[ASN1_MAXIMUM_DEPTH];
+	const void *end;
+	const void *stack[ASN1_MAXIMUM_DEPTH];
 	uint8_t depth;
 	asn1_token_t token;
 } asn1_parser_t;
@@ -164,6 +172,8 @@ ASININE_API asinine_err_t asn1_bitstring(
 
 ASININE_API asinine_err_t asn1_int(
     const asn1_token_t *token, asn1_word_t *value);
+ASININE_API asinine_err_t asn1_uint_buf(
+    const asn1_token_t *token, const uint8_t **buf, size_t *num);
 
 ASININE_API asinine_err_t asn1_time(
     const asn1_token_t *token, asn1_time_t *time);

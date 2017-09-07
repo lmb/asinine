@@ -31,14 +31,14 @@ solution "Asinine"
 		language "C"
 		links { "asinine" }
 
-		files { "src/utils/dump.c" }
+		files { "src/utils/dump.c", "src/utils/hex.c", "src/utils/load.c" }
 
 	project "x509"
 		kind "ConsoleApp"
 		language "C"
 		links { "asinine" }
 
-		files { "src/utils/x509.c" }
+		files { "src/utils/x509.c", "src/utils/hex.c", "src/utils/load.c" }
 
 	project "tests"
 		kind "ConsoleApp"

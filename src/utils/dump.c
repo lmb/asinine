@@ -9,41 +9,7 @@
 #include <string.h>
 
 #include "asinine/asn1.h"
-
-#define BYTES_PER_LINE (12)
-
-static char
-to_printable(uint8_t value) {
-	return (32 <= value && value <= 127) ? (char)value : '.';
-}
-
-static void
-hexdump(const asn1_token_t *token, int depth) {
-	size_t i, j;
-	char printable[BYTES_PER_LINE + 1] = "";
-	char hex[(3 * BYTES_PER_LINE) + 1] = "";
-
-	if (token->data == NULL) {
-		return;
-	}
-
-	for (i = 0, j = 0; i < token->length; ++i, j = (j + 1) % BYTES_PER_LINE) {
-		if (j == 0 && i > 0) {
-			printf("%*s", (depth * 2) + 2, "");
-			printf("|%-*s| %s\n", BYTES_PER_LINE, printable, hex);
-			memset(printable, 0, sizeof printable);
-			memset(hex, 0, sizeof hex);
-		}
-
-		printable[j] = to_printable(token->data[i]);
-		snprintf(hex + (j * 3), 4, "%02X ", token->data[i]);
-	}
-
-	if (j > 0) {
-		printf("%*s", (depth * 2) + 2, "");
-		printf("|%-*s| %s\n", BYTES_PER_LINE, printable, hex);
-	}
-}
+#include "internal/utils.h"
 
 void
 dump_token(const asn1_token_t *token, uint8_t depth, void *ctx) {
@@ -126,7 +92,7 @@ dump_token(const asn1_token_t *token, uint8_t depth, void *ctx) {
 
 		case ASN1_TAG_OCTETSTRING:
 			printf("\n");
-			hexdump(token, depth);
+			hexdump(token->data, token->length, depth);
 			break;
 
 		case ASN1_TAG_BOOL: {
@@ -151,11 +117,9 @@ dump_token(const asn1_token_t *token, uint8_t depth, void *ctx) {
 		}
 	} else {
 		printf("\n");
-		hexdump(token, depth);
+		hexdump(token->data, token->length, depth);
 	}
 }
-
-static const uint8_t *load(FILE *fd, size_t *length);
 
 int
 main(int argc, const char *argv[]) {
@@ -193,24 +157,4 @@ main(int argc, const char *argv[]) {
 	}
 
 	return 0;
-}
-
-static const uint8_t *
-load(FILE *fd, size_t *length) {
-#define BUF_SIZE (1024 * 1024)
-	uint8_t *contents = calloc(1, BUF_SIZE);
-	if (contents == NULL) {
-		printf("Could not allocate memory\n");
-		return NULL;
-	}
-
-	*length = fread(contents, 1, BUF_SIZE, fd);
-	if (*length < BUF_SIZE) {
-		return contents;
-	}
-
-	fprintf(stderr, "Input is longer than %d bytes\n", BUF_SIZE);
-	free(contents);
-	return NULL;
-#undef BUF_SIZE
 }
