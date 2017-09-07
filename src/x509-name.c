@@ -168,8 +168,7 @@ x509_parse_alt_names(asn1_parser_t *parser, x509_alt_names_t *alt_names) {
 		NEXT_TOKEN(parser);
 
 		asn1_type_t type = token->type;
-		if (type.class != ASN1_CLASS_CONTEXT ||
-		    type.encoding != ASN1_ENCODING_PRIMITIVE) {
+		if (type.class != ASN1_CLASS_CONTEXT) {
 			return ASININE_ERROR_INVALID;
 		}
 
@@ -217,6 +216,12 @@ x509_parse_alt_names(asn1_parser_t *parser, x509_alt_names_t *alt_names) {
 			return ASININE_ERROR_UNSUPPORTED;
 			break;
 		default:
+			return ASININE_ERROR_INVALID;
+		}
+
+		// At least directoryAddress uses constructed encoding, so we check
+		// here to return UNSUPPORTED instead of INVALID.
+		if (type.encoding != ASN1_ENCODING_PRIMITIVE) {
 			return ASININE_ERROR_INVALID;
 		}
 
