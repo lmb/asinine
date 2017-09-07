@@ -21,11 +21,10 @@
 /x509
 
 # Build system files
-/Makefile
 /obj
-*.make
 *.sublime-workspace
 
 # Misc
 .DS_Store
 testcerts/
+.vscode/
