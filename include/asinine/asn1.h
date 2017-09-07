@@ -25,6 +25,9 @@ extern "C" {
 #define ASN1_OID_MAXIMUM_DEPTH 12
 #define ASN1_MAXIMUM_DEPTH 10
 
+typedef intptr_t asn1_word_t;
+typedef uintptr_t asn1_uword_t;
+
 typedef enum asinine_err {
 	ASININE_OK                      = 0,
 	ASININE_ERROR_MALFORMED         = -10,
@@ -159,7 +162,8 @@ ASININE_API asinine_err_t asn1_string(
 ASININE_API asinine_err_t asn1_bitstring(
     const asn1_token_t *token, uint8_t *buf, const size_t num);
 
-ASININE_API asinine_err_t asn1_int(const asn1_token_t *token, int *value);
+ASININE_API asinine_err_t asn1_int(
+    const asn1_token_t *token, asn1_word_t *value);
 
 ASININE_API asinine_err_t asn1_time(
     const asn1_token_t *token, asn1_time_t *time);

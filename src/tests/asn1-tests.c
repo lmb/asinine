@@ -185,7 +185,7 @@ test_asn1_parse(void) {
 	    )};
 
 	asn1_parser_t parser;
-	int value;
+	asn1_word_t value;
 
 	asn1_init(&parser, raw, sizeof(raw));
 
@@ -290,7 +290,7 @@ test_asn1_parse_nested(void) {
 	    INT(0x0A))};
 
 	asn1_parser_t parser;
-	int value, test = 1;
+	asn1_word_t value, test = 1;
 
 	asn1_init(&parser, raw, sizeof raw);
 
@@ -348,7 +348,7 @@ test_asn1_parse_single(void) {
 	uint8_t raw1[2 + sizeof(int)] = {EMPTY_INT()};
 	const uint8_t raw2[]          = {NUL()};
 
-	int value;
+	asn1_word_t value;
 
 	asn1_parser_t parser;
 
@@ -520,10 +520,8 @@ test_asn1_parse_invalid_int(void) {
 	const asn1_token_t leading_zeroes_token =
 	    TOKEN(ASN1_TAG_INT, leading_zeroes_raw, ASN1_ENCODING_PRIMITIVE);
 
-	int value;
-
-	check(asn1_int(&leading_ones_token, &value) == ASININE_ERROR_MALFORMED);
-	check(asn1_int(&leading_zeroes_token, &value) == ASININE_ERROR_MALFORMED);
+	check(asn1_int(&leading_ones_token, NULL) == ASININE_ERROR_MALFORMED);
+	check(asn1_int(&leading_zeroes_token, NULL) == ASININE_ERROR_MALFORMED);
 
 	return 0;
 }

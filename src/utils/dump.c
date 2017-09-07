@@ -2,6 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#include <inttypes.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -77,14 +78,14 @@ dump_token(const asn1_token_t *token, uint8_t depth, void *ctx) {
 			break;
 
 		case ASN1_TAG_INT: {
-			int value;
+			asn1_word_t value;
 
 			if (asn1_int(token, &value) < ASININE_OK) {
 				printf(" <INVALID>\n");
 				break;
 			}
 
-			printf(" %d\n", value);
+			printf(" %" PRIdPTR "\n", value);
 			break;
 		}
 

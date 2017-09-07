@@ -127,7 +127,7 @@ x509_parse(asn1_parser_t *parser, x509_cert_t *cert) {
 
 	if (asn1_is(
 	        &parser->token, ASN1_CLASS_CONTEXT, 0, ASN1_ENCODING_CONSTRUCTED)) {
-		int version;
+		asn1_word_t version;
 
 		RETURN_ON_ERROR(asn1_push(parser));
 
@@ -480,7 +480,7 @@ parse_extn_basic_constraints(asn1_parser_t *parser, x509_cert_t *cert) {
 		NEXT_CHILD(parser);
 	}
 
-	int value;
+	asn1_word_t value;
 	RETURN_ON_ERROR(asn1_int(&parser->token, &value));
 
 	if (value < 0) {

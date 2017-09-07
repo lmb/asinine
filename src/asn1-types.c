@@ -230,17 +230,11 @@ asn1_bitstring(const asn1_token_t *token, uint8_t *buf, const size_t num) {
 
 // 8.3
 asinine_err_t
-asn1_int(const asn1_token_t *token, int *value) {
+asn1_int(const asn1_token_t *token, asn1_word_t *value) {
 	const uint8_t *data = token->data;
-	int interim, mask;
-	size_t i;
 
 	if (token->length == 0) {
 		return ASININE_ERROR_INVALID;
-	}
-
-	if (token->length > sizeof *value) {
-		return ASININE_ERROR_MEMORY;
 	}
 
 	if (token->length > 1) {
@@ -252,15 +246,23 @@ asn1_int(const asn1_token_t *token, int *value) {
 		}
 	}
 
-	interim = 0;
-	for (i = 0; i < token->length; ++i) {
+	if (value == NULL) {
+		return ASININE_OK;
+	}
+
+	if (token->length > sizeof *value) {
+		return ASININE_ERROR_MEMORY;
+	}
+
+	asn1_word_t interim = 0;
+	for (size_t i = 0; i < token->length; ++i) {
 		// This never shifts a negative number, and is therefore not UB
 		interim = (interim << 8) | data[i];
 	}
 
 	// Sign extend
-	mask   = 1 << ((token->length * 8) - 1);
-	*value = (interim ^ mask) - mask;
+	asn1_word_t mask = 1 << ((token->length * 8) - 1);
+	*value           = (interim ^ mask) - mask;
 
 	return ASININE_OK;
 }
