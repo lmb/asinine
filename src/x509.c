@@ -418,6 +418,12 @@ parse_extn_key_usage(asn1_parser_t *parser, x509_cert_t *cert) {
 
 	cert->key_usage = (uint16_t)(buf[1] << 8) | buf[0];
 
+	// RFC 3279 2.3.1. to 2.3.5.
+	if ((cert->key_usage & X509_KEYUSE_DECIPHER_ONLY) != 0 &&
+	    (cert->key_usage & X509_KEYUSE_ENCIPHER_ONLY) != 0) {
+		return ASININE_ERROR_INVALID;
+	}
+
 	/* RFC 5280, p.30: "When the keyUsage extension appears in a certificate, at
 	 * least one of the bits MUST be set to 1."
 	 */
