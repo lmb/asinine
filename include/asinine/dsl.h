@@ -7,7 +7,7 @@
 #define RETURN_ON_ERROR(expr) \
 	do { \
 		asinine_err_t ret = expr; \
-		if (ret < ASININE_OK) { \
+		if (ret != ASININE_OK) { \
 			return ret; \
 		} \
 	} while (0)

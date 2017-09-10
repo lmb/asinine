@@ -50,12 +50,12 @@ bool parse_asn1(const uint8_t *data, size_t length)
 	asn1_parser_t parser;
 	asn1_token_t token;
 
-	if (asn1_init(&parser, &token, data, length) < ASININE_OK) {
+	if (asn1_init(&parser, &token, data, length) != ASININE_OK) {
 		// The return code will shed some light on what went wrong
 		return false;
 	}
 
-	if (asn1_next(&parser) < ASININE_OK) {
+	if (asn1_next(&parser) != ASININE_OK) {
 		return false;
 	}
 

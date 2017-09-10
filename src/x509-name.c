@@ -64,7 +64,7 @@ x509_parse_optional_name(asn1_parser_t *parser, x509_name_t *name) {
 			return ASININE_ERR_INVALID;
 		}
 
-		if (asn1_oid(token, &(name->rdns[name->num].oid)) < ASININE_OK) {
+		if (asn1_oid(token, &(name->rdns[name->num].oid)) != ASININE_OK) {
 			return ASININE_ERR_INVALID;
 		}
 

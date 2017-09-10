@@ -35,7 +35,7 @@ dump_token(const asn1_token_t *token, uint8_t depth, void *ctx) {
 		case ASN1_TAG_UTF8STRING:
 		case ASN1_TAG_VISIBLESTRING:
 		case ASN1_TAG_PRINTABLESTRING:
-			if (asn1_string(token, buf, sizeof(buf)) < ASININE_OK) {
+			if (asn1_string(token, buf, sizeof(buf)) != ASININE_OK) {
 				printf(" <INVALID>\n");
 				break;
 			}
@@ -46,7 +46,7 @@ dump_token(const asn1_token_t *token, uint8_t depth, void *ctx) {
 		case ASN1_TAG_INT: {
 			asn1_word_t value;
 
-			if (asn1_int(token, &value) < ASININE_OK) {
+			if (asn1_int(token, &value) != ASININE_OK) {
 				printf(" <INVALID>\n");
 				break;
 			}
@@ -58,7 +58,7 @@ dump_token(const asn1_token_t *token, uint8_t depth, void *ctx) {
 		case ASN1_TAG_OID: {
 			asn1_oid_t oid;
 
-			if (asn1_oid(token, &oid) < ASININE_OK) {
+			if (asn1_oid(token, &oid) != ASININE_OK) {
 				printf(" <INVALID>\n");
 				break;
 			}
@@ -76,7 +76,7 @@ dump_token(const asn1_token_t *token, uint8_t depth, void *ctx) {
 		case ASN1_TAG_GENERALIZEDTIME: {
 			asn1_time_t time;
 
-			if (asn1_time(token, &time) < ASININE_OK) {
+			if (asn1_time(token, &time) != ASININE_OK) {
 				printf(" <INVALID>\n");
 				break;
 			}
@@ -98,7 +98,7 @@ dump_token(const asn1_token_t *token, uint8_t depth, void *ctx) {
 		case ASN1_TAG_BOOL: {
 			bool value;
 
-			if (asn1_bool(token, &value) < ASININE_OK) {
+			if (asn1_bool(token, &value) != ASININE_OK) {
 				printf(" <INVALID>\n");
 				break;
 			}
