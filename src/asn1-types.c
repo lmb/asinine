@@ -183,8 +183,8 @@ asn1_bitstring(const asn1_token_t *token, uint8_t *buf, const size_t num) {
 	 * An empty bitstring is encoded as first byte 0 and no further data.
 	 */
 
-	// 8.6.2.2 and 10.2
-	if (token->length < 1 || token->type.encoding != ASN1_ENCODING_PRIMITIVE) {
+	// 8.6.2.2
+	if (token->length < 1) {
 		return ASININE_ERR_MALFORMED;
 	}
 

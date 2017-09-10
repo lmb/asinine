@@ -192,7 +192,12 @@ x509_parse(asn1_parser_t *parser, x509_cert_t *cert) {
 		return ASININE_ERR_INVALID;
 	}
 
-	RETURN_ON_ERROR(asn1_bitstring(&parser->token, NULL, 0));
+	// The signature value claims it's a bitstring, but really is
+	// a bag of bytes. Contrary to the spec it can end in a zero byte,
+	// which breaks when validated as a real bitstring.
+	if (parser->token.length < 1 || parser->token.data[0] != 0) {
+		return ASININE_ERR_MALFORMED;
+	}
 	cert->signature = parser->token;
 
 	// RFC5280 4.1.2.6.

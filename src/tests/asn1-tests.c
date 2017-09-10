@@ -137,14 +137,11 @@ test_asn1_bitstring_decode(void) {
 
 static char *
 test_asn1_bitstring_decode_invalid(void) {
-	const uint8_t valid1[]   = {0x00};
 	const uint8_t invalid1[] = {0x04, 0x0f};
 	const uint8_t invalid2[] = {0xff, 0x0f};
 	const uint8_t invalid3[] = {0x01};
 	const uint8_t invalid4[] = {0x00, 0x00};
 
-	const asn1_token_t token1 =
-	    TOKEN(ASN1_TAG_BITSTRING, valid1, ASN1_ENCODING_CONSTRUCTED);
 	const asn1_token_t token2 =
 	    TOKEN(ASN1_TAG_BITSTRING, invalid1, ASN1_ENCODING_PRIMITIVE);
 	const asn1_token_t token3 =
@@ -156,7 +153,6 @@ test_asn1_bitstring_decode_invalid(void) {
 
 	uint8_t buf[1];
 
-	check(asn1_bitstring(&token1, buf, sizeof buf) == ASININE_ERR_MALFORMED);
 	check(asn1_bitstring(&token2, buf, 0) == ASININE_ERR_MEMORY);
 	check(asn1_bitstring(&token2, buf, sizeof buf) == ASININE_ERR_MALFORMED);
 	check(asn1_bitstring(&token3, buf, sizeof buf) == ASININE_ERR_MALFORMED);
