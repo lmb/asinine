@@ -76,7 +76,8 @@ asn1_next(asn1_parser_t *parser) {
 		return ASININE_ERR_MALFORMED;
 	}
 
-	*token = (asn1_token_t){0};
+	*token       = (asn1_token_t){0};
+	token->start = parser->current;
 
 	// Type (8.1.2)
 	token->type.class    = TYPE_CLASS(*parser->current);

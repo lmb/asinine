@@ -60,12 +60,12 @@ process_certificate(x509_path_t *path, const x509_cert_t *cert) {
 	// 6.1.3. (a) (1)
 
 	if (!signature_is_compatible(
-	        cert->signature_algorithm, path->public_key.algorithm)) {
+	        cert->signature.algorithm, path->public_key.algorithm)) {
 		return ASININE_ERR_INVALID_ALGORITHM;
 	}
 
-	asinine_err_t err = path->cb(
-	    &path->public_key, path->public_key_parameters, cert, path->ctx);
+	asinine_err_t err = path->cb(&path->public_key, path->public_key_parameters,
+	    &cert->signature, cert->raw, cert->raw_num, path->ctx);
 	if (err != ASININE_OK) {
 		return err;
 	}

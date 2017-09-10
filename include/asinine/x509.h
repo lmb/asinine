@@ -35,6 +35,12 @@ typedef enum x509_sig_algo {
 	X509_SIGNATURE_SHA256_DSA,
 } x509_sig_algo_t;
 
+typedef struct x509_signature {
+	x509_sig_algo_t algorithm;
+	const uint8_t *data;
+	size_t num;
+} x509_signature_t;
+
 typedef struct x509_pubkey_rsa {
 	const uint8_t *n;
 	size_t n_num;
@@ -130,9 +136,9 @@ typedef struct x509_alt_names {
 
 typedef struct x509_cert {
 	x509_version_t version;
-	x509_sig_algo_t signature_algorithm;
-	asn1_token_t signature;
-	asn1_token_t certificate;
+	x509_signature_t signature;
+	const uint8_t *raw;
+	size_t raw_num;
 	x509_name_t issuer;
 	x509_name_t subject;
 	x509_pubkey_t pubkey;
@@ -162,7 +168,8 @@ ASININE_API asinine_err_t x509_parse_alt_names(
     asn1_parser_t *parser, x509_alt_names_t *alt_names);
 
 typedef asinine_err_t (*x509_validation_cb_t)(const x509_pubkey_t *pubkey,
-    x509_pubkey_params_t params, const x509_cert_t *cert, void *ctx);
+    x509_pubkey_params_t params, const x509_signature_t *sig,
+    const uint8_t *raw, size_t raw_num, void *ctx);
 
 typedef struct x509_path {
 	void *ctx;

@@ -36,7 +36,7 @@ solution "Asinine"
 	project "x509"
 		kind "ConsoleApp"
 		language "C"
-		links { "asinine" }
+		links { "asinine", "mbedcrypto" }
 
 		files { "src/utils/x509.c", "src/utils/hex.c", "src/utils/load.c" }
 

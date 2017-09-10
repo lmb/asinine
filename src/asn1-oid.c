@@ -49,7 +49,7 @@ asn1_oid(const asn1_token_t *token, asn1_oid_t *oid) {
 
 	arc          = 0;
 	arc_bits     = 0;
-	is_first_arc = 1;
+	is_first_arc = true;
 
 	for (data = token->data; data < token->data + token->length; data++) {
 		if (arc == 0 && *data == 0x80) {

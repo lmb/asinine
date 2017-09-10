@@ -131,18 +131,7 @@ main(int argc, const char *argv[]) {
 		return 1;
 	}
 
-	FILE *fd = stdin;
-	if (strcmp(argv[1], "-") != 0) {
-		fd = fopen(argv[1], "rb");
-		if (fd == NULL) {
-			perror("Couldn't open source");
-			return 1;
-		}
-	}
-
-	contents = load(fd, &length);
-	fclose(fd);
-
+	contents = load(argv[1], &length);
 	if (contents == NULL) {
 		return 1;
 	}

@@ -113,7 +113,8 @@ static const extension_lookup_t extensions[] = {
 
 asinine_err_t
 x509_parse(asn1_parser_t *parser, x509_cert_t *cert) {
-	*cert = (x509_cert_t){0};
+	*cert                     = (x509_cert_t){0};
+	const asn1_token_t *token = &parser->token;
 
 	// Certificate
 	RETURN_ON_ERROR(asn1_push_seq(parser));
@@ -121,23 +122,23 @@ x509_parse(asn1_parser_t *parser, x509_cert_t *cert) {
 	// tbsCertificate
 	RETURN_ON_ERROR(asn1_push_seq(parser));
 
-	cert->certificate = parser->token;
+	cert->raw     = token->start;
+	cert->raw_num = token->length + (size_t)(token->data - token->start);
 
 	// version
 	NEXT_TOKEN(parser);
 
-	if (asn1_is(
-	        &parser->token, ASN1_CLASS_CONTEXT, 0, ASN1_ENCODING_CONSTRUCTED)) {
+	if (asn1_is(token, ASN1_CLASS_CONTEXT, 0, ASN1_ENCODING_CONSTRUCTED)) {
 		asn1_word_t version;
 
 		RETURN_ON_ERROR(asn1_push(parser));
 
 		NEXT_TOKEN(parser);
-		if (!asn1_is_int(&parser->token)) {
+		if (!asn1_is_int(token)) {
 			return ASININE_ERR_INVALID;
 		}
 
-		RETURN_ON_ERROR(asn1_int(&parser->token, &version));
+		RETURN_ON_ERROR(asn1_int(token, &version));
 
 		if (version != X509_V2 && version != X509_V3) {
 			return ASININE_ERR_INVALID;
@@ -153,7 +154,7 @@ x509_parse(asn1_parser_t *parser, x509_cert_t *cert) {
 
 	// serialNumber
 	// TODO: As per X.509 guide, this should be treated as a binary blob
-	if (!asn1_is_int(&parser->token)) {
+	if (!asn1_is_int(token)) {
 		return ASININE_ERR_INVALID;
 	}
 
@@ -182,23 +183,24 @@ x509_parse(asn1_parser_t *parser, x509_cert_t *cert) {
 	// signatureAlgorithm
 	NEXT_TOKEN(parser);
 
-	if (!asn1_eq(&parser->token, &signature)) {
+	if (!asn1_eq(token, &signature)) {
 		return ASININE_ERR_INVALID;
 	}
 
 	// signature
 	NEXT_TOKEN(parser);
-	if (!asn1_is_bitstring(&parser->token)) {
+	if (!asn1_is_bitstring(token)) {
 		return ASININE_ERR_INVALID;
 	}
 
 	// The signature value claims it's a bitstring, but really is
 	// a bag of bytes. Contrary to the spec it can end in a zero byte,
 	// which breaks when validated as a real bitstring.
-	if (parser->token.length < 1 || parser->token.data[0] != 0) {
+	if (token->length < 1 || token->data[0] != 0) {
 		return ASININE_ERR_MALFORMED;
 	}
-	cert->signature = parser->token;
+	cert->signature.data = token->data + 1;
+	cert->signature.num  = token->length - 1;
 
 	// RFC5280 4.1.2.6.
 	if (cert->is_ca && cert->subject.num == 0) {
@@ -223,16 +225,12 @@ parse_optional(asn1_parser_t *parser, x509_cert_t *cert) {
 		// issuerUniqueID
 		if (asn1_is(token, ASN1_CLASS_CONTEXT, 1, ASN1_ENCODING_PRIMITIVE)) {
 			// TODO: Do something
-			printf("Got issuerUniqueID\n");
-
 			NEXT_CHILD(parser);
 		}
 
 		// subjectUniqueID
 		if (asn1_is(token, ASN1_CLASS_CONTEXT, 2, ASN1_ENCODING_PRIMITIVE)) {
 			// TODO: Do something
-			printf("Got subjectUniqueID\n");
-
 			NEXT_CHILD(parser);
 		}
 
@@ -351,7 +349,7 @@ parse_signature_info(
 		return ASININE_ERR_UNSUPPORTED_ALGO;
 	}
 
-	cert->signature_algorithm = result->algorithm;
+	cert->signature.algorithm = result->algorithm;
 	cert->deprecated          = cert->deprecated || result->deprecated;
 
 	RETURN_ON_ERROR(result->parser(parser, cert));

@@ -9,4 +9,4 @@
 #include <stdio.h>
 
 void hexdump(const uint8_t *buf, size_t num, int depth);
-uint8_t *load(FILE *fd, size_t *length);
+uint8_t *load(const char *name, size_t *length);

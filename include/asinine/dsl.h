@@ -6,9 +6,9 @@
 
 #define RETURN_ON_ERROR(expr) \
 	do { \
-		asinine_err_t ret = expr; \
-		if (ret != ASININE_OK) { \
-			return ret; \
+		asinine_err_t ret__##__LINE__ = expr; \
+		if (ret__##__LINE__ != ASININE_OK) { \
+			return ret__##__LINE__; \
 		} \
 	} while (0)
 #define NEXT_TOKEN(parser) RETURN_ON_ERROR(asn1_next(parser))
