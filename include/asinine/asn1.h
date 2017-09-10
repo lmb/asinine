@@ -29,22 +29,28 @@ typedef intptr_t asn1_word_t;
 typedef uintptr_t asn1_uword_t;
 
 typedef enum asinine_err {
-	ASININE_OK                      = 0,
-	ASININE_ERROR_MALFORMED         = -10,
-	ASININE_ERROR_MEMORY            = -20,
-	ASININE_ERROR_UNSUPPORTED       = -30,
-	ASININE_ERROR_UNSUPPORTED_ALGO  = -31,
-	ASININE_ERROR_UNSUPPORTED_EXTN  = -32,
-	ASININE_ERROR_INVALID           = -40,
-	ASININE_ERROR_INVALID_UNTRUSTED = -41,
-	ASININE_ERROR_INVALID_EXPIRED   = -42,
-	ASININE_ERROR_INVALID_ALGORITHM = -43,
-	ASININE_ERROR_INVALID_ISSUER    = -44,
-	ASININE_ERROR_INVALID_VERSION   = -45,
-	ASININE_ERROR_INVALID_NOT_CA    = -46,
-	ASININE_ERROR_INVALID_PATH_LEN  = -47,
-	ASININE_ERROR_INVALID_KEYUSE    = -48,
-	ASININE_ERROR_DEPRECATED        = -70,
+	ASININE_OK                         = 0,
+	ASININE_ERR_MALFORMED              = -10,
+	ASININE_ERR_MALFORMED_LENGTH       = -11,
+	ASININE_ERR_MALFORMED_TAG          = -12,
+	ASININE_ERR_MEMORY                 = -20,
+	ASININE_ERR_UNSUPPORTED            = -30,
+	ASININE_ERR_UNSUPPORTED_ALGO       = -31,
+	ASININE_ERR_UNSUPPORTED_EXTN       = -32,
+	ASININE_ERR_UNSUPPORTED_LENGTH     = -33,
+	ASININE_ERR_UNSUPPORTED_NESTING    = -34,
+	ASININE_ERR_UNSUPPORTED_NAME       = -35,
+	ASININE_ERR_UNSUPPORTED_CONSTRAINT = -36,
+	ASININE_ERR_INVALID                = -40,
+	ASININE_ERR_INVALID_UNTRUSTED      = -41,
+	ASININE_ERR_INVALID_EXPIRED        = -42,
+	ASININE_ERR_INVALID_ALGORITHM      = -43,
+	ASININE_ERR_INVALID_ISSUER         = -44,
+	ASININE_ERR_INVALID_VERSION        = -45,
+	ASININE_ERR_INVALID_NOT_CA         = -46,
+	ASININE_ERR_INVALID_PATH_LEN       = -47,
+	ASININE_ERR_INVALID_KEYUSE         = -48,
+	ASININE_ERR_DEPRECATED             = -70,
 } asinine_err_t;
 
 /**
@@ -128,14 +134,17 @@ ASININE_API const char *asinine_strerror(asinine_err_t err);
 ASININE_API void asn1_init(
     asn1_parser_t *parser, const uint8_t *data, size_t length);
 
+ASININE_API asinine_err_t asn1_abort(asn1_parser_t *parser);
+
 ASININE_API asinine_err_t asn1_next(asn1_parser_t *parser);
 ASININE_API asinine_err_t asn1_push(asn1_parser_t *parser);
 ASININE_API asinine_err_t asn1_force_push(asn1_parser_t *parser);
 ASININE_API asinine_err_t asn1_pop(asn1_parser_t *parser);
-ASININE_API asinine_err_t asn1_tokens(asn1_parser_t *parser, void *ctx,
-    void (*fn)(const asn1_token_t *, uint8_t depth, void *ctx));
 
 ASININE_API asinine_err_t asn1_push_seq(asn1_parser_t *parser);
+
+ASININE_API asinine_err_t asn1_tokens(asn1_parser_t *parser, void *ctx,
+    void (*fn)(const asn1_token_t *, uint8_t depth, void *ctx));
 
 /**
  * Skip to the end of the current token

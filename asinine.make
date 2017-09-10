@@ -68,6 +68,7 @@ OBJECTS := \
 	$(OBJDIR)/asn1-parser.o \
 	$(OBJDIR)/asn1-types.o \
 	$(OBJDIR)/x509-name.o \
+	$(OBJDIR)/x509-path.o \
 	$(OBJDIR)/x509-pubkey.o \
 	$(OBJDIR)/x509.o \
 
@@ -142,6 +143,10 @@ $(OBJDIR)/asn1-types.o: src/asn1-types.c
 	$(SILENT) $(CC) $(ALL_CFLAGS) $(FORCE_INCLUDE) -o "$@" -MF $(@:%.o=%.d) -c "$<"
 
 $(OBJDIR)/x509-name.o: src/x509-name.c
+	@echo $(notdir $<)
+	$(SILENT) $(CC) $(ALL_CFLAGS) $(FORCE_INCLUDE) -o "$@" -MF $(@:%.o=%.d) -c "$<"
+
+$(OBJDIR)/x509-path.o: src/x509-path.c
 	@echo $(notdir $<)
 	$(SILENT) $(CC) $(ALL_CFLAGS) $(FORCE_INCLUDE) -o "$@" -MF $(@:%.o=%.d) -c "$<"
 

@@ -28,7 +28,7 @@ x509_parse_name(asn1_parser_t *parser, x509_name_t *name) {
 	if (err != ASININE_OK) {
 		return err;
 	}
-	return name->num > 0 ? ASININE_OK : ASININE_ERROR_INVALID;
+	return name->num > 0 ? ASININE_OK : ASININE_ERR_INVALID;
 }
 
 /**
@@ -49,7 +49,7 @@ x509_parse_optional_name(asn1_parser_t *parser, x509_name_t *name) {
 		NEXT_TOKEN(parser);
 
 		if (!asn1_is_set(token)) {
-			return ASININE_ERROR_INVALID;
+			return ASININE_ERR_INVALID;
 		}
 
 		RETURN_ON_ERROR(asn1_push(parser));
@@ -61,17 +61,17 @@ x509_parse_optional_name(asn1_parser_t *parser, x509_name_t *name) {
 		NEXT_TOKEN(parser);
 
 		if (!asn1_is_oid(token)) {
-			return ASININE_ERROR_INVALID;
+			return ASININE_ERR_INVALID;
 		}
 
 		if (asn1_oid(token, &(name->rdns[name->num].oid)) < ASININE_OK) {
-			return ASININE_ERROR_INVALID;
+			return ASININE_ERR_INVALID;
 		}
 
 		// Get string value
 		NEXT_TOKEN(parser);
 		if (!asn1_is_string(token)) {
-			return ASININE_ERROR_INVALID;
+			return ASININE_ERR_INVALID;
 		}
 
 		name->rdns[name->num].value = *token;
@@ -82,7 +82,7 @@ x509_parse_optional_name(asn1_parser_t *parser, x509_name_t *name) {
 
 		// TODO: Currently, only one AVA per RDN is supported
 		if (!asn1_eof(parser)) {
-			return ASININE_ERROR_UNSUPPORTED;
+			return ASININE_ERR_UNSUPPORTED_NAME;
 		}
 
 		// End of RDN
@@ -90,7 +90,7 @@ x509_parse_optional_name(asn1_parser_t *parser, x509_name_t *name) {
 	}
 
 	if (!asn1_eof(parser)) {
-		return ASININE_ERROR_MEMORY;
+		return ASININE_ERR_MEMORY;
 	}
 
 	x509_sort_name(name);
@@ -169,26 +169,26 @@ x509_parse_alt_names(asn1_parser_t *parser, x509_alt_names_t *alt_names) {
 
 		asn1_type_t type = token->type;
 		if (type.class != ASN1_CLASS_CONTEXT) {
-			return ASININE_ERROR_INVALID;
+			return ASININE_ERR_INVALID;
 		}
 
 		switch ((uint8_t)type.tag) {
 		case X509_ALT_NAME_RFC822NAME:
 			if (token->length == 0) {
-				return ASININE_ERROR_INVALID;
+				return ASININE_ERR_INVALID;
 			}
 			break;
 		case X509_ALT_NAME_DNSNAME:
 			if (token->length == 0) {
-				return ASININE_ERROR_INVALID;
+				return ASININE_ERR_INVALID;
 			}
 			if (token->length == 1 && token->data[0] == ' ') {
-				return ASININE_ERROR_INVALID;
+				return ASININE_ERR_INVALID;
 			}
 			break;
 		case X509_ALT_NAME_URI:
 			if (token->length == 0) {
-				return ASININE_ERROR_INVALID;
+				return ASININE_ERR_INVALID;
 			}
 			// TODO: "The name
 			//    MUST NOT be a relative URI, and it MUST follow the URI syntax
@@ -205,7 +205,7 @@ x509_parse_alt_names(asn1_parser_t *parser, x509_alt_names_t *alt_names) {
 			break;
 		case X509_ALT_NAME_IP:
 			if (token->length != 4 && token->length != 16) {
-				return ASININE_ERROR_INVALID;
+				return ASININE_ERR_INVALID;
 			}
 			break;
 		case 0: // otherName
@@ -213,16 +213,16 @@ x509_parse_alt_names(asn1_parser_t *parser, x509_alt_names_t *alt_names) {
 		case 4: // directoryAddress
 		case 5: // ediPartyName
 		case 8: // registeredID
-			return ASININE_ERROR_UNSUPPORTED;
+			return ASININE_ERR_UNSUPPORTED_NAME;
 			break;
 		default:
-			return ASININE_ERROR_INVALID;
+			return ASININE_ERR_INVALID;
 		}
 
 		// At least directoryAddress uses constructed encoding, so we check
 		// here to return UNSUPPORTED instead of INVALID.
 		if (type.encoding != ASN1_ENCODING_PRIMITIVE) {
-			return ASININE_ERROR_INVALID;
+			return ASININE_ERR_INVALID;
 		}
 
 		alt_names->names[i].type   = (x509_alt_name_type_t)type.tag;
@@ -232,7 +232,7 @@ x509_parse_alt_names(asn1_parser_t *parser, x509_alt_names_t *alt_names) {
 	} while (!asn1_eof(parser) && i < X509_MAX_ALT_NAMES);
 
 	if (!asn1_eof(parser)) {
-		return ASININE_ERROR_MEMORY;
+		return ASININE_ERR_MEMORY;
 	}
 
 	return asn1_pop(parser);

@@ -133,11 +133,14 @@ x509_parse(asn1_parser_t *parser, x509_cert_t *cert) {
 		RETURN_ON_ERROR(asn1_push(parser));
 
 		NEXT_TOKEN(parser);
+		if (!asn1_is_int(&parser->token)) {
+			return ASININE_ERR_INVALID;
+		}
 
 		RETURN_ON_ERROR(asn1_int(&parser->token, &version));
 
 		if (version != X509_V2 && version != X509_V3) {
-			return ASININE_ERROR_INVALID;
+			return ASININE_ERR_INVALID;
 		}
 
 		cert->version = (x509_version_t)version;
@@ -151,7 +154,7 @@ x509_parse(asn1_parser_t *parser, x509_cert_t *cert) {
 	// serialNumber
 	// TODO: As per X.509 guide, this should be treated as a binary blob
 	if (!asn1_is_int(&parser->token)) {
-		return ASININE_ERROR_INVALID;
+		return ASININE_ERR_INVALID;
 	}
 
 	// signature
@@ -180,25 +183,26 @@ x509_parse(asn1_parser_t *parser, x509_cert_t *cert) {
 	NEXT_TOKEN(parser);
 
 	if (!asn1_eq(&parser->token, &signature)) {
-		return ASININE_ERROR_INVALID;
+		return ASININE_ERR_INVALID;
 	}
 
 	// signature
 	NEXT_TOKEN(parser);
-
-	// TODO: Do something with the signature
 	if (!asn1_is_bitstring(&parser->token)) {
-		return ASININE_ERROR_INVALID;
+		return ASININE_ERR_INVALID;
 	}
+
+	RETURN_ON_ERROR(asn1_bitstring(&parser->token, NULL, 0));
+	cert->signature = parser->token;
 
 	// RFC5280 4.1.2.6.
 	if (cert->is_ca && cert->subject.num == 0) {
-		return ASININE_ERROR_INVALID;
+		return ASININE_ERR_INVALID;
 	}
 
 	if ((cert->key_usage & X509_KEYUSE_CRL_SIGN) != 0 &&
 	    cert->subject.num == 0) {
-		return ASININE_ERROR_INVALID;
+		return ASININE_ERR_INVALID;
 	}
 
 	return asn1_pop(parser);
@@ -230,11 +234,11 @@ parse_optional(asn1_parser_t *parser, x509_cert_t *cert) {
 		// extensions
 		if (cert->version != X509_V3) {
 			// We should not be here if this is not a V3 cert
-			return ASININE_ERROR_INVALID;
+			return ASININE_ERR_INVALID;
 		}
 
 		if (!asn1_is(token, ASN1_CLASS_CONTEXT, 3, ASN1_ENCODING_CONSTRUCTED)) {
-			return ASININE_ERROR_INVALID;
+			return ASININE_ERR_INVALID;
 		}
 
 		RETURN_ON_ERROR(asn1_push(parser));
@@ -242,7 +246,7 @@ parse_optional(asn1_parser_t *parser, x509_cert_t *cert) {
 		RETURN_ON_ERROR(asn1_pop(parser));
 	}
 
-	return !asn1_eof(parser) ? ASININE_ERROR_INVALID : ASININE_OK;
+	return !asn1_eof(parser) ? ASININE_ERR_INVALID : ASININE_OK;
 }
 
 static delegate_parser_t
@@ -271,7 +275,7 @@ parse_extensions(asn1_parser_t *parser, x509_cert_t *cert) {
 		NEXT_TOKEN(parser);
 
 		if (!asn1_is_oid(token)) {
-			return ASININE_ERROR_INVALID;
+			return ASININE_ERR_INVALID;
 		}
 
 		asn1_oid_t id;
@@ -288,7 +292,7 @@ parse_extensions(asn1_parser_t *parser, x509_cert_t *cert) {
 
 		// extnValue
 		if (!asn1_is_octetstring(token)) {
-			return ASININE_ERROR_INVALID;
+			return ASININE_ERR_INVALID;
 		}
 
 		delegate_parser_t extn_parser = find_extension_parser(&id);
@@ -299,8 +303,7 @@ parse_extensions(asn1_parser_t *parser, x509_cert_t *cert) {
 		} else if (critical) {
 			char buf[256];
 			asn1_oid_to_string(buf, sizeof(buf), &id);
-			fprintf(stderr, "%s\n", buf);
-			return ASININE_ERROR_UNSUPPORTED;
+			return ASININE_ERR_UNSUPPORTED_EXTN;
 		}
 
 		RETURN_ON_ERROR(asn1_pop(parser));
@@ -332,7 +335,7 @@ parse_signature_info(
 	NEXT_TOKEN(parser);
 
 	if (!asn1_is_oid(token)) {
-		return ASININE_ERROR_INVALID;
+		return ASININE_ERR_INVALID;
 	}
 
 	asn1_oid_t oid;
@@ -340,7 +343,7 @@ parse_signature_info(
 
 	const signature_lookup_t *result = find_signature_algorithm(&oid);
 	if (result == NULL) {
-		return ASININE_ERROR_UNSUPPORTED;
+		return ASININE_ERR_UNSUPPORTED_ALGO;
 	}
 
 	cert->signature_algorithm = result->algorithm;
@@ -360,14 +363,14 @@ parse_validity(asn1_parser_t *parser, x509_cert_t *cert) {
 	// Valid from
 	NEXT_TOKEN(parser);
 	if (!asn1_is_time(token)) {
-		return ASININE_ERROR_INVALID;
+		return ASININE_ERR_INVALID;
 	}
 	RETURN_ON_ERROR(asn1_time(token, &cert->valid_from));
 
 	// Valid to
 	NEXT_TOKEN(parser);
 	if (!asn1_is_time(token)) {
-		return ASININE_ERROR_INVALID;
+		return ASININE_ERR_INVALID;
 	}
 	RETURN_ON_ERROR(asn1_time(token, &cert->valid_to));
 
@@ -393,17 +396,17 @@ _x509_parse_null_or_empty_args(asn1_parser_t *parser) {
 	NEXT_TOKEN(parser);
 
 	if (!asn1_is_null(token)) {
-		return ASININE_ERROR_INVALID;
+		return ASININE_ERR_INVALID;
 	}
 
-	return ASININE_OK;
+	return asn1_null(token);
 }
 
 static asinine_err_t
 parse_empty_args(asn1_parser_t *parser, x509_cert_t *cert) {
 	(void)cert;
 
-	return asn1_eof(parser) ? ASININE_OK : ASININE_ERROR_MALFORMED;
+	return asn1_eof(parser) ? ASININE_OK : ASININE_ERR_MALFORMED;
 }
 
 static asinine_err_t
@@ -411,7 +414,7 @@ parse_extn_key_usage(asn1_parser_t *parser, x509_cert_t *cert) {
 	NEXT_TOKEN(parser);
 
 	if (!asn1_is_bitstring(&parser->token)) {
-		return ASININE_ERROR_INVALID;
+		return ASININE_ERR_INVALID;
 	}
 
 	uint8_t buf[2];
@@ -422,14 +425,14 @@ parse_extn_key_usage(asn1_parser_t *parser, x509_cert_t *cert) {
 	// RFC 3279 2.3.1. to 2.3.5.
 	if ((cert->key_usage & X509_KEYUSE_DECIPHER_ONLY) != 0 &&
 	    (cert->key_usage & X509_KEYUSE_ENCIPHER_ONLY) != 0) {
-		return ASININE_ERROR_INVALID;
+		return ASININE_ERR_INVALID;
 	}
 
 	/* RFC 5280, p.30: "When the keyUsage extension appears in a certificate, at
 	 * least one of the bits MUST be set to 1."
 	 */
 	return (asn1_eof(parser) && cert->key_usage != 0) ? ASININE_OK
-	                                                  : ASININE_ERROR_INVALID;
+	                                                  : ASININE_ERR_INVALID;
 }
 
 static asinine_err_t
@@ -444,7 +447,7 @@ parse_extn_ext_key_usage(asn1_parser_t *parser, x509_cert_t *cert) {
 		NEXT_TOKEN(parser);
 
 		if (!asn1_is_oid(&parser->token)) {
-			return ASININE_ERROR_INVALID;
+			return ASININE_ERR_INVALID;
 		}
 
 		RETURN_ON_ERROR(asn1_oid(&parser->token, &oid));
@@ -491,11 +494,11 @@ parse_extn_basic_constraints(asn1_parser_t *parser, x509_cert_t *cert) {
 	RETURN_ON_ERROR(asn1_int(&parser->token, &value));
 
 	if (value < 0) {
-		return ASININE_ERROR_INVALID;
+		return ASININE_ERR_INVALID;
 	}
 
 	if (value > INT8_MAX) {
-		return ASININE_ERROR_UNSUPPORTED;
+		return ASININE_ERR_UNSUPPORTED_CONSTRAINT;
 	}
 
 	cert->path_len_constraint = (int8_t)value;

@@ -131,6 +131,7 @@ typedef struct x509_alt_names {
 typedef struct x509_cert {
 	x509_version_t version;
 	x509_sig_algo_t signature_algorithm;
+	asn1_token_t signature;
 	asn1_token_t certificate;
 	x509_name_t issuer;
 	x509_name_t subject;
@@ -159,6 +160,31 @@ ASININE_API bool x509_name_eq(
     const x509_name_t *a, const x509_name_t *b, const char **err);
 ASININE_API asinine_err_t x509_parse_alt_names(
     asn1_parser_t *parser, x509_alt_names_t *alt_names);
+
+typedef asinine_err_t (*x509_validation_cb_t)(const x509_pubkey_t *pubkey,
+    x509_pubkey_params_t params, const x509_cert_t *cert, void *ctx);
+
+typedef struct x509_path {
+	void *ctx;
+	x509_pubkey_t public_key;
+	x509_pubkey_params_t public_key_parameters;
+	x509_name_t issuer_name;
+	x509_validation_cb_t cb;
+	asn1_time_t now;
+	int8_t max_length;
+} x509_path_t;
+
+ASININE_API asinine_err_t x509_find_issuer(
+    asn1_parser_t *parser, const x509_cert_t *cert, x509_cert_t *issuer);
+
+ASININE_API void x509_path_init(x509_path_t *path, const x509_cert_t *anchor,
+    const asn1_time_t *now, x509_validation_cb_t cb, void *ctx);
+
+ASININE_API asinine_err_t x509_path_add(
+    x509_path_t *path, const x509_cert_t *cert);
+
+ASININE_API asinine_err_t x509_path_end(
+    x509_path_t *path, const x509_cert_t *cert);
 
 #ifdef __cplusplus
 }

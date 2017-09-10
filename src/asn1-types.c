@@ -123,11 +123,11 @@ validate_string(const asn1_token_t *token) {
 asinine_err_t
 asn1_string(const asn1_token_t *token, char *buf, size_t num) {
 	if (!validate_string(token)) {
-		return ASININE_ERROR_MALFORMED;
+		return ASININE_ERR_MALFORMED;
 	}
 
 	if (num <= token->length) {
-		return ASININE_ERROR_MEMORY;
+		return ASININE_ERR_MEMORY;
 	}
 
 	memcpy(buf, token->data, token->length);
@@ -136,7 +136,7 @@ asn1_string(const asn1_token_t *token, char *buf, size_t num) {
 	// We disallow NULLs in all strings, since the potential for abuse is too
 	// high. This is a deviation from spec, obviously.
 	if (strlen(buf) != token->length) {
-		return ASININE_ERROR_INVALID;
+		return ASININE_ERR_INVALID;
 	}
 
 	return ASININE_OK;
@@ -185,11 +185,11 @@ asn1_bitstring(const asn1_token_t *token, uint8_t *buf, const size_t num) {
 
 	// 8.6.2.2 and 10.2
 	if (token->length < 1 || token->type.encoding != ASN1_ENCODING_PRIMITIVE) {
-		return ASININE_ERROR_MALFORMED;
+		return ASININE_ERR_MALFORMED;
 	}
 
 	if (buf != NULL && token->length - 1 > num) {
-		return ASININE_ERROR_MEMORY;
+		return ASININE_ERR_MEMORY;
 	}
 
 	memset(buf, 0, num);
@@ -197,17 +197,17 @@ asn1_bitstring(const asn1_token_t *token, uint8_t *buf, const size_t num) {
 	// 8.6.2.2
 	uint8_t unused_bits = token->data[0];
 	if (unused_bits > 7) {
-		return ASININE_ERROR_MALFORMED;
+		return ASININE_ERR_MALFORMED;
 	}
 
 	// 8.6.2.3
 	if (token->length == 1) {
-		return (unused_bits == 0) ? ASININE_OK : ASININE_ERROR_MALFORMED;
+		return (unused_bits == 0) ? ASININE_OK : ASININE_ERR_MALFORMED;
 	}
 
 	// 11.2.2
 	if (token->data[token->length - 1] == 0) {
-		return ASININE_ERROR_MALFORMED;
+		return ASININE_ERR_MALFORMED;
 	}
 
 	// 11.2.1
@@ -215,7 +215,7 @@ asn1_bitstring(const asn1_token_t *token, uint8_t *buf, const size_t num) {
 		unused_bits = (uint8_t)((1 << unused_bits) - 1);
 
 		if ((token->data[token->length - 1] & unused_bits) != 0) {
-			return ASININE_ERROR_MALFORMED;
+			return ASININE_ERR_MALFORMED;
 		}
 	}
 
@@ -234,7 +234,7 @@ asn1_int(const asn1_token_t *token, asn1_word_t *value) {
 	const uint8_t *data = token->data;
 
 	if (token->length == 0) {
-		return ASININE_ERROR_INVALID;
+		return ASININE_ERR_INVALID;
 	}
 
 	if (token->length > 1) {
@@ -242,7 +242,7 @@ asn1_int(const asn1_token_t *token, asn1_word_t *value) {
 		int leading = ((data[0] << 8) | data[1]) >> 7;
 
 		if (leading == 0 || leading == (1 << 9) - 1) {
-			return ASININE_ERROR_MALFORMED;
+			return ASININE_ERR_MALFORMED;
 		}
 	}
 
@@ -251,7 +251,7 @@ asn1_int(const asn1_token_t *token, asn1_word_t *value) {
 	}
 
 	if (token->length > sizeof *value) {
-		return ASININE_ERROR_MEMORY;
+		return ASININE_ERR_MEMORY;
 	}
 
 	asn1_word_t interim = 0;
@@ -276,7 +276,7 @@ asn1_uint_buf(const asn1_token_t *token, const uint8_t **buf, size_t *num) {
 
 	if ((token->data[0] & 0x80) != 0) {
 		// This is a signed integer
-		return ASININE_ERROR_INVALID;
+		return ASININE_ERR_INVALID;
 	}
 
 	if (token->data[0] == 0) {
@@ -321,14 +321,14 @@ asn1_time(const asn1_token_t *token, asn1_time_t *time) {
 	const char *data = (char *)token->data;
 
 	if (token->length < MIN_TIME_LENGTH || token->length > MAX_TIME_LENGTH) {
-		return ASININE_ERROR_MALFORMED;
+		return ASININE_ERR_MALFORMED;
 	}
 
 	// (YY)YYMMDDHHMMSS(Z|+-D)
 	uint8_t pairs[7];
 	for (size_t i = 0; i < token->length / 2; data += 2, i++) {
 		if (!decode_pair(data, &pairs[i])) {
-			return ASININE_ERROR_MALFORMED;
+			return ASININE_ERR_MALFORMED;
 		}
 	}
 
@@ -338,7 +338,7 @@ asn1_time(const asn1_token_t *token, asn1_time_t *time) {
 	// - use '.' as a fractional delimiter
 
 	if (*data != 'Z') {
-		return ASININE_ERROR_MALFORMED;
+		return ASININE_ERR_MALFORMED;
 	}
 
 	size_t i = 0;
@@ -349,7 +349,7 @@ asn1_time(const asn1_token_t *token, asn1_time_t *time) {
 
 		// Years are from (19)50 to (20)49, so 99 is 1999 and 00 is 2000.
 		if (time->year > 99) {
-			return ASININE_ERROR_MALFORMED;
+			return ASININE_ERR_MALFORMED;
 		}
 
 		// Normalize years, since the encoding is not linear:
@@ -365,7 +365,7 @@ asn1_time(const asn1_token_t *token, asn1_time_t *time) {
 		break;
 
 	default:
-		return ASININE_ERROR_MALFORMED;
+		return ASININE_ERR_MALFORMED;
 	}
 
 	time->month  = pairs[i++];
@@ -376,25 +376,25 @@ asn1_time(const asn1_token_t *token, asn1_time_t *time) {
 
 	// Validation
 	if (time->month < 1 || time->month > 12) {
-		return ASININE_ERROR_MALFORMED;
+		return ASININE_ERR_MALFORMED;
 	}
 
 	if (time->day < 1) {
-		return ASININE_ERROR_MALFORMED;
+		return ASININE_ERR_MALFORMED;
 	} else if (is_leap_year(time->year) && time->month == 2) {
 		if (time->day > 29) {
-			return ASININE_ERROR_MALFORMED;
+			return ASININE_ERR_MALFORMED;
 		}
 	} else if (time->day > days_per_month[time->month - 1]) {
-		return ASININE_ERROR_MALFORMED;
+		return ASININE_ERR_MALFORMED;
 	}
 
 	if (time->hour > 23) {
-		return ASININE_ERROR_MALFORMED;
+		return ASININE_ERR_MALFORMED;
 	}
 
 	if (time->second > 59) {
-		return ASININE_ERROR_MALFORMED;
+		return ASININE_ERR_MALFORMED;
 	}
 
 	return ASININE_OK;
@@ -405,7 +405,7 @@ asn1_bool(const asn1_token_t *token, bool *value) {
 	uint8_t data;
 
 	if (token->length != 1) {
-		return ASININE_ERROR_MALFORMED;
+		return ASININE_ERR_MALFORMED;
 	}
 
 	data = *token->data;
@@ -415,7 +415,7 @@ asn1_bool(const asn1_token_t *token, bool *value) {
 	} else if (data == 0xFF) {
 		*value = true;
 	} else {
-		return ASININE_ERROR_MALFORMED;
+		return ASININE_ERR_MALFORMED;
 	}
 
 	return ASININE_OK;
@@ -423,7 +423,7 @@ asn1_bool(const asn1_token_t *token, bool *value) {
 
 asinine_err_t
 asn1_null(const asn1_token_t *token) {
-	return (token->length == 0) ? ASININE_OK : ASININE_ERROR_MALFORMED;
+	return (token->length == 0) ? ASININE_OK : ASININE_ERR_MALFORMED;
 }
 
 const char *
@@ -433,21 +433,27 @@ asinine_strerror(asinine_err_t err) {
 		return #x
 	switch (err) {
 		case_for_tag(ASININE_OK);
-		case_for_tag(ASININE_ERROR_MALFORMED);
-		case_for_tag(ASININE_ERROR_MEMORY);
-		case_for_tag(ASININE_ERROR_UNSUPPORTED);
-		case_for_tag(ASININE_ERROR_UNSUPPORTED_ALGO);
-		case_for_tag(ASININE_ERROR_UNSUPPORTED_EXTN);
-		case_for_tag(ASININE_ERROR_INVALID);
-		case_for_tag(ASININE_ERROR_INVALID_UNTRUSTED);
-		case_for_tag(ASININE_ERROR_INVALID_EXPIRED);
-		case_for_tag(ASININE_ERROR_INVALID_ALGORITHM);
-		case_for_tag(ASININE_ERROR_INVALID_ISSUER);
-		case_for_tag(ASININE_ERROR_INVALID_VERSION);
-		case_for_tag(ASININE_ERROR_INVALID_NOT_CA);
-		case_for_tag(ASININE_ERROR_INVALID_PATH_LEN);
-		case_for_tag(ASININE_ERROR_INVALID_KEYUSE);
-		case_for_tag(ASININE_ERROR_DEPRECATED);
+		case_for_tag(ASININE_ERR_MALFORMED);
+		case_for_tag(ASININE_ERR_MALFORMED_LENGTH);
+		case_for_tag(ASININE_ERR_MALFORMED_TAG);
+		case_for_tag(ASININE_ERR_MEMORY);
+		case_for_tag(ASININE_ERR_UNSUPPORTED);
+		case_for_tag(ASININE_ERR_UNSUPPORTED_ALGO);
+		case_for_tag(ASININE_ERR_UNSUPPORTED_EXTN);
+		case_for_tag(ASININE_ERR_UNSUPPORTED_LENGTH);
+		case_for_tag(ASININE_ERR_UNSUPPORTED_NESTING);
+		case_for_tag(ASININE_ERR_UNSUPPORTED_NAME);
+		case_for_tag(ASININE_ERR_UNSUPPORTED_CONSTRAINT);
+		case_for_tag(ASININE_ERR_INVALID);
+		case_for_tag(ASININE_ERR_INVALID_UNTRUSTED);
+		case_for_tag(ASININE_ERR_INVALID_EXPIRED);
+		case_for_tag(ASININE_ERR_INVALID_ALGORITHM);
+		case_for_tag(ASININE_ERR_INVALID_ISSUER);
+		case_for_tag(ASININE_ERR_INVALID_VERSION);
+		case_for_tag(ASININE_ERR_INVALID_NOT_CA);
+		case_for_tag(ASININE_ERR_INVALID_PATH_LEN);
+		case_for_tag(ASININE_ERR_INVALID_KEYUSE);
+		case_for_tag(ASININE_ERR_DEPRECATED);
 	default:
 		return "UNKNOWN";
 	}

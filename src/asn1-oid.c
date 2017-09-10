@@ -37,14 +37,14 @@ asn1_oid(const asn1_token_t *token, asn1_oid_t *oid) {
 	*oid = (asn1_oid_t){0};
 
 	if (token->data == NULL || token->length == 0) {
-		return ASININE_ERROR_MALFORMED;
+		return ASININE_ERR_MALFORMED;
 	}
 
 	// 8.19.2 "[...] last in the series: bit 8 of the last octet is zero; [...]"
 	// Since we need to have the end of a series at the end of this token, we
 	// check here.
 	if ((*(token->data + token->length - 1) & OID_CONTINUATION_MASK) != 0) {
-		return ASININE_ERROR_MALFORMED;
+		return ASININE_ERR_MALFORMED;
 	}
 
 	arc          = 0;
@@ -55,14 +55,14 @@ asn1_oid(const asn1_token_t *token, asn1_oid_t *oid) {
 		if (arc == 0 && *data == 0x80) {
 			// 8.19.2 "the leading octet of the subidentifier shall not have the
 			// value 0x80"
-			return ASININE_ERROR_MALFORMED;
+			return ASININE_ERR_MALFORMED;
 		}
 
 		arc = (arc << OID_VALUE_BITS_PER_BYTE) | (*data & OID_VALUE_MASK);
 		arc_bits += OID_VALUE_BITS_PER_BYTE;
 
 		if (arc_bits > sizeof(arc) * 8) {
-			return ASININE_ERROR_MEMORY;
+			return ASININE_ERR_MEMORY;
 		}
 
 		if ((*data & OID_CONTINUATION_MASK) == 0) {
@@ -73,7 +73,7 @@ asn1_oid(const asn1_token_t *token, asn1_oid_t *oid) {
 				asn1_oid_arc_t x = MIN(arc, 80) / 40;
 
 				if (!append_arc(oid, x)) {
-					return ASININE_ERROR_MEMORY;
+					return ASININE_ERR_MEMORY;
 				}
 
 				arc          = (arc - (x * 40));
@@ -81,7 +81,7 @@ asn1_oid(const asn1_token_t *token, asn1_oid_t *oid) {
 			}
 
 			if (!append_arc(oid, arc)) {
-				return ASININE_ERROR_MEMORY;
+				return ASININE_ERR_MEMORY;
 			}
 
 			arc      = 0;

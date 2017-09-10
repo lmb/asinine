@@ -81,7 +81,7 @@ x509_parse_pubkey(asn1_parser_t *parser, x509_pubkey_t *pubkey,
 
 	NEXT_TOKEN(parser);
 	if (!asn1_is_oid(&parser->token)) {
-		return ASININE_ERROR_INVALID;
+		return ASININE_ERR_INVALID;
 	}
 
 	asn1_oid_t oid;
@@ -89,7 +89,7 @@ x509_parse_pubkey(asn1_parser_t *parser, x509_pubkey_t *pubkey,
 
 	const pubkey_lookup_t *result = find_pubkey_algorithm(&oid);
 	if (result == NULL) {
-		return ASININE_ERROR_UNSUPPORTED;
+		return ASININE_ERR_UNSUPPORTED_ALGO;
 	}
 
 	pubkey->algorithm = result->algorithm;
@@ -101,7 +101,7 @@ x509_parse_pubkey(asn1_parser_t *parser, x509_pubkey_t *pubkey,
 
 	NEXT_TOKEN(parser);
 	if (!asn1_is_bitstring(&parser->token)) {
-		return ASININE_ERROR_INVALID;
+		return ASININE_ERR_INVALID;
 	}
 
 	if (result->broken_encoding) {
@@ -135,7 +135,7 @@ parse_rsa_pubkey(asn1_parser_t *parser, x509_pubkey_t *pubkey) {
 	// modulus (n)
 	NEXT_TOKEN(parser);
 	if (!asn1_is_int(token)) {
-		return ASININE_ERROR_INVALID;
+		return ASININE_ERR_INVALID;
 	}
 
 	RETURN_ON_ERROR(
@@ -144,7 +144,7 @@ parse_rsa_pubkey(asn1_parser_t *parser, x509_pubkey_t *pubkey) {
 	// public exponent (e)
 	NEXT_TOKEN(parser);
 	if (!asn1_is_int(token)) {
-		return ASININE_ERROR_INVALID;
+		return ASININE_ERR_INVALID;
 	}
 
 	RETURN_ON_ERROR(
@@ -168,11 +168,11 @@ parse_ecdsa_params(
     asn1_parser_t *parser, x509_pubkey_params_t *params, bool *has_params) {
 	NEXT_TOKEN(parser);
 	if (asn1_is_null(&parser->token)) {
-		return ASININE_OK;
+		return asn1_null(&parser->token);
 	}
 
 	if (!asn1_is_oid(&parser->token)) {
-		return ASININE_ERROR_INVALID;
+		return ASININE_ERR_INVALID;
 	}
 
 	asn1_oid_t oid;
@@ -180,7 +180,7 @@ parse_ecdsa_params(
 
 	x509_ecdsa_curve_t curve = find_curve(&oid);
 	if (curve == X509_ECDSA_CURVE_INVALID) {
-		return ASININE_ERROR_UNSUPPORTED;
+		return ASININE_ERR_UNSUPPORTED_ALGO;
 	}
 
 	*has_params         = true;
