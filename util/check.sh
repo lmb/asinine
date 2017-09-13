@@ -18,12 +18,12 @@ if [ ! -f "$1" ]; then
 	exit 1
 fi
 
-if [ $(jq -r '.["validation"]["nss"]["type"]' "$1") != "leaf" ]; then
+if [ "$(jq -r '.["validation"]["nss"]["type"]' "$1")" != "leaf" ]; then
 	echo Not a leaf certificate, skipping
 	exit 0
 fi
 
-if [ $(jq -r '.["validation"]["nss"]["trusted_path"]' "$1") != "true" ]; then
+if [ "$(jq -r '.["validation"]["nss"]["trusted_path"]' "$1")" != "true" ]; then
 	echo Not a trusted path, skipping
 	exit 0
 fi
@@ -32,10 +32,10 @@ base="$(dirname "$1")"
 certs=($(jq -r --arg pre "$base/" --arg post .der '.["validation"]["nss"]["paths"][0][0:-1]|reverse|.[]|$pre+.+$post' "$1"))
 
 if [ $debug = no ]; then
-	cat "${certs[@]}" | ./x509 --check "$base/cacert.der" -
+	cat "${certs[@]}" | ./bin/Debug/x509 --check "$base/cacert.der" -
 	exit $?
 else
 	for cert in "${certs[@]}"; do
-		echo gdb --args ./x509 "$(realpath --relative-base="$PWD" "$cert")"
+		echo gdb --args ./bin/Debug/x509 "$(realpath --relative-base="$PWD" "$cert")"
 	done
 fi

@@ -2,23 +2,29 @@
      License, v. 2.0. If a copy of the MPL was not distributed with this
      file, You can obtain one at http://mozilla.org/MPL/2.0/. ]]
 
-solution "Asinine"
+workspace "Asinine"
 	configurations { "Debug", "Release" }
 	includedirs { "include" }
+	flags { "FatalWarnings", "ShadowedVariables", "UndefinedIdentifiers" }
+	buildoptions {
+		"-std=c99",
+		"-ffunction-sections",
+		"-fvisibility=hidden",
+		"-fno-strict-aliasing",
+		"-Wno-missing-field-initializers",
+		"-Wno-missing-braces",
+		"-Wstrict-overflow",
+		"-Wconversion"
+	}
 
-	buildoptions { "-std=c99", "-Wpedantic", "-ffunction-sections",
-		"-Wextra", "-Wall", "-fvisibility=hidden", "-Wstrict-overflow",
-		"-fno-strict-aliasing", "-Wno-missing-field-initializers",
-		"-Wno-missing-braces", "-Wconversion" }
-
-	configuration "Debug"
+	filter "configurations:Debug"
 		defines { "DEBUG" }
-		flags { "Symbols", "FatalWarnings" }
-		buildoptions { "-Wshadow" }
+		symbols "On"
+		warnings "Extra"
 
-	configuration "Release"
+	filter "configurations:Release"
 		defines { "NDEBUG" }
-		flags { "OptimizeSize" }
+		optimize "Size"
 
 	project "asinine"
 		kind "StaticLib"

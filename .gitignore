@@ -16,12 +16,10 @@
 *.exe
 *.out
 *.app
-/tests
-/dump
-/x509
 
 # Build system files
 /obj
+/bin
 *.sublime-workspace
 
 # Misc
