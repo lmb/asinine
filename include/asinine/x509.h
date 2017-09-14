@@ -106,8 +106,31 @@ typedef enum x509_ext_keyuse {
 	X509_EXT_KEYUSE_ANY          = 63
 } x509_ext_keyuse_t;
 
+typedef enum x509_rdn_type {
+	X509_RDN_INVALID,
+	X509_RDN_JURISDICTION_COUNTRY,
+	X509_RDN_JURISDICTION_STATE_OR_PROVINCE,
+	X509_RDN_JURISDICTION_LOCALITY,
+	X509_RDN_COUNTRY,
+	X509_RDN_STATE_OR_PROVINCE,
+	X509_RDN_LOCALITY,
+	X509_RDN_POSTAL_CODE,
+	X509_RDN_STREET_ADDRESS,
+	X509_RDN_PO_BOX,
+	X509_RDN_BUSINESS_CATEGORY,
+	X509_RDN_ORGANIZATION,
+	X509_RDN_ORGANIZATIONAL_UNIT,
+	X509_RDN_ORGANIZATIONAL_ID,
+	X509_RDN_DISTINGUISHED_NAME,
+	X509_RDN_DISTINGUISHED_NAME_QUALIFIER,
+	X509_RDN_COMMON_NAME,
+	X509_RDN_SERIAL_NUMBER,
+	X509_RDN_SURNAME,
+	X509_RDN_EMAIL,
+} x509_rdn_type_t;
+
 typedef struct x509_rdn {
-	asn1_oid_t oid;
+	x509_rdn_type_t type;
 	asn1_token_t value;
 } x509_rdn_t;
 
@@ -154,18 +177,20 @@ typedef struct x509_cert {
 	int8_t path_len_constraint;
 } x509_cert_t;
 
-ASININE_API asinine_err_t x509_parse(asn1_parser_t *parser, x509_cert_t *cert);
+ASININE_API asinine_err_t x509_parse_cert(
+    asn1_parser_t *parser, x509_cert_t *cert);
 ASININE_API asinine_err_t x509_parse_name(
     asn1_parser_t *parser, x509_name_t *name);
 ASININE_API asinine_err_t x509_parse_optional_name(
     asn1_parser_t *parser, x509_name_t *name);
+ASININE_API asinine_err_t x509_parse_alt_names(
+    asn1_parser_t *parser, x509_alt_names_t *alt_names);
 ASININE_API asinine_err_t x509_parse_pubkey(asn1_parser_t *parser,
     x509_pubkey_t *pubkey, x509_pubkey_params_t *params, bool *has_params);
 ASININE_API void x509_sort_name(x509_name_t *name);
+ASININE_API const char *x509_rdn_type_string(x509_rdn_type_t type);
 ASININE_API bool x509_name_eq(
     const x509_name_t *a, const x509_name_t *b, const char **err);
-ASININE_API asinine_err_t x509_parse_alt_names(
-    asn1_parser_t *parser, x509_alt_names_t *alt_names);
 
 typedef asinine_err_t (*x509_validation_cb_t)(const x509_pubkey_t *pubkey,
     x509_pubkey_params_t params, const x509_signature_t *sig,

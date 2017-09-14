@@ -112,7 +112,7 @@ static const extension_lookup_t extensions[] = {
 };
 
 asinine_err_t
-x509_parse(asn1_parser_t *parser, x509_cert_t *cert) {
+x509_parse_cert(asn1_parser_t *parser, x509_cert_t *cert) {
 	*cert                     = (x509_cert_t){0};
 	const asn1_token_t *token = &parser->token;
 

@@ -6,35 +6,35 @@
 #include <stdlib.h>
 
 #include "asinine/x509.h"
-
-#include "tests/certs.h"
+#include "internal/macros.h"
+#include "internal/utils.h"
 #include "tests/test.h"
 #include "tests/x509.h"
 
+static const char *certs[] = {
+    "testdata/server-ecdsa-v1.der", "testdata/server-ecdsa.der",
+};
+
 static char *
 test_x509_certs(void) {
-	x509_cert_t *cert = calloc(1, sizeof(x509_cert_t));
-	assert(cert != NULL);
-
 	bool errors = false;
-	for (size_t i = 0; i < x509_certs_num; i++) {
-		const char *const host    = x509_certs[i].host;
-		const uint8_t *const data = x509_certs[i].data;
-		const size_t length       = x509_certs[i].length;
+	for (size_t i = 0; i < NUM(certs); i++) {
+		size_t length;
+		const uint8_t *data = load(certs[i], &length);
+		assert(data != NULL);
+
 		asn1_parser_t parser;
-
 		asn1_init(&parser, data, length);
-		asinine_err_t result = x509_parse(&parser, cert);
 
-		if (result != ASININE_OK) {
-			const char *error = asinine_strerror(result);
-
-			printf("> %s (#%zu): %s\n", host, i, error);
+		x509_cert_t cert;
+		asinine_err_t err = x509_parse_cert(&parser, &cert);
+		if (err != ASININE_OK) {
+			printf("> %s: %s\n", certs[i], asinine_strerror(err));
 			errors = true;
 		}
 
-		if (!asn1_end(&parser)) {
-			printf("> %s (#%zu): did not consume input\n", host, i);
+		if (!errors && !asn1_end(&parser)) {
+			printf("> %s: did not consume input\n", certs[i]);
 			errors = true;
 		}
 	}
@@ -49,13 +49,13 @@ test_x509_parse_name() {
 		SEQ(
 			SET(
 				SEQ(
-					OID(0x29, 0x02, 0x04),
+					OID(0x55, 0x04, 0x06),
 					STR('Z','a','p','h','o','d')
 				)
 			),
 			SET(
 				SEQ(
-					OID(0x88, 0x37, 0x01),
+					OID(0x55, 0x04, 0x03),
 					STR('B','e','e','b','l','e','b','r','o','x')
 				)
 			)
@@ -70,8 +70,8 @@ test_x509_parse_name() {
 	check_OK(x509_parse_name(&parser, &a));
 
 	check(a.num == 2);
-	check(asn1_oid_eq(&a.rdns[0].oid, ASN1_CONST_OID(1, 1, 2, 4)));
-	check(asn1_oid_eq(&a.rdns[1].oid, ASN1_CONST_OID(2, 999, 1)));
+	check(a.rdns[0].type == X509_RDN_COUNTRY);
+	check(a.rdns[1].type == X509_RDN_COMMON_NAME);
 
 	check(x509_name_eq(&a, &a, NULL));
 
@@ -80,7 +80,7 @@ test_x509_parse_name() {
 	    .rdns =
 	        {
 	            {
-	                .oid   = ASN1_OID(1, 1, 2, 4),
+	                .type  = X509_RDN_COUNTRY,
 	                .value = STR_TOKEN(ASN1_TAG_UTF8STRING, "Slartibartfass"),
 	            },
 	        },
@@ -97,15 +97,15 @@ test_x509_sort_name() {
 	    .rdns =
 	        {
 	            {
-	                .oid   = ASN1_OID(1, 2, 3),
+	                .type  = X509_RDN_ORGANIZATION,
 	                .value = STR_TOKEN(ASN1_TAG_UTF8STRING, "Warudo"),
 	            },
 	            {
-	                .oid   = ASN1_OID(1, 2, 4),
+	                .type  = X509_RDN_COMMON_NAME,
 	                .value = STR_TOKEN(ASN1_TAG_UTF8STRING, "!!!"),
 	            },
 	            {
-	                .oid   = ASN1_OID(1, 2),
+	                .type  = X509_RDN_COUNTRY,
 	                .value = STR_TOKEN(ASN1_TAG_UTF8STRING, "Za"),
 	            },
 	        },

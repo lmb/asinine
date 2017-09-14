@@ -36,6 +36,6 @@ if [ $debug = no ]; then
 	exit $?
 else
 	for cert in "${certs[@]}"; do
-		echo gdb --args ./bin/Debug/x509 "$(realpath --relative-base="$PWD" "$cert")"
+		echo lldb -- ./bin/Debug/x509 "$(realpath --relative-base="$PWD" "$cert")"
 	done
 fi

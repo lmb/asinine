@@ -66,9 +66,9 @@ endif
 
 OBJECTS := \
 	$(OBJDIR)/asn1-tests.o \
-	$(OBJDIR)/certs.o \
 	$(OBJDIR)/runner.o \
 	$(OBJDIR)/x509-tests.o \
+	$(OBJDIR)/load.o \
 
 RESOURCES := \
 
@@ -129,13 +129,13 @@ endif
 $(OBJDIR)/asn1-tests.o: src/tests/asn1-tests.c
 	@echo $(notdir $<)
 	$(SILENT) $(CC) $(ALL_CFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
-$(OBJDIR)/certs.o: src/tests/certs.c
-	@echo $(notdir $<)
-	$(SILENT) $(CC) $(ALL_CFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
 $(OBJDIR)/runner.o: src/tests/runner.c
 	@echo $(notdir $<)
 	$(SILENT) $(CC) $(ALL_CFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
 $(OBJDIR)/x509-tests.o: src/tests/x509-tests.c
+	@echo $(notdir $<)
+	$(SILENT) $(CC) $(ALL_CFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
+$(OBJDIR)/load.o: src/utils/load.c
 	@echo $(notdir $<)
 	$(SILENT) $(CC) $(ALL_CFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
 

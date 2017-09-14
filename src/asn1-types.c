@@ -445,7 +445,6 @@ asinine_strerror(asinine_err_t err) {
 		case_for_tag(ASININE_ERR_UNSUPPORTED_NAME);
 		case_for_tag(ASININE_ERR_UNSUPPORTED_CONSTRAINT);
 		case_for_tag(ASININE_ERR_INVALID);
-		case_for_tag(ASININE_ERR_INVALID_UNTRUSTED);
 		case_for_tag(ASININE_ERR_INVALID_EXPIRED);
 		case_for_tag(ASININE_ERR_INVALID_ALGORITHM);
 		case_for_tag(ASININE_ERR_INVALID_ISSUER);
@@ -453,9 +452,9 @@ asinine_strerror(asinine_err_t err) {
 		case_for_tag(ASININE_ERR_INVALID_NOT_CA);
 		case_for_tag(ASININE_ERR_INVALID_PATH_LEN);
 		case_for_tag(ASININE_ERR_INVALID_KEYUSE);
+		case_for_tag(ASININE_ERR_UNTRUSTED_ISSUER);
+		case_for_tag(ASININE_ERR_UNTRUSTED_SIGNATURE);
 		case_for_tag(ASININE_ERR_DEPRECATED);
-	default:
-		return "UNKNOWN";
 	}
 #undef case_for_tag
 }
@@ -471,8 +470,6 @@ class_to_string(asn1_class_t class) {
 		case_for(ASN1_CLASS_APPLICATION);
 		case_for(ASN1_CLASS_CONTEXT);
 		case_for(ASN1_CLASS_PRIVATE);
-	default:
-		return "UNKNOWN";
 	}
 #undef case_for
 }
@@ -483,7 +480,7 @@ tag_to_string(asn1_tag_t tag) {
 #define case_for(x) \
 	case x: \
 		return #x
-	switch ((asn1_tag_t)tag) {
+	switch (tag) {
 		case_for(ASN1_TAG_BOOL);
 		case_for(ASN1_TAG_INT);
 		case_for(ASN1_TAG_BITSTRING);
@@ -499,8 +496,6 @@ tag_to_string(asn1_tag_t tag) {
 		case_for(ASN1_TAG_UTCTIME);
 		case_for(ASN1_TAG_GENERALIZEDTIME);
 		case_for(ASN1_TAG_VISIBLESTRING);
-	default:
-		return "UNKNOWN";
 	}
 #undef case_for
 }

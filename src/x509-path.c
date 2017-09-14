@@ -20,7 +20,7 @@ asinine_err_t
 x509_find_issuer(
     asn1_parser_t *parser, const x509_cert_t *cert, x509_cert_t *issuer) {
 	while (!asn1_end(parser)) {
-		asinine_err_t err = x509_parse(parser, issuer);
+		asinine_err_t err = x509_parse_cert(parser, issuer);
 		if (err != ASININE_OK) {
 			// We can't parse this certificate. Rather than giving up
 			// parse the next one, in the hopes that we don't need

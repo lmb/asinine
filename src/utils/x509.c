@@ -28,11 +28,8 @@ dump_name(FILE *fd, const x509_name_t *name) {
 	for (size_t i = 0; i < name->num; i++) {
 		const x509_rdn_t *rdn = &name->rdns[i];
 
-		if (asn1_oid_to_string(buf, sizeof(buf), &rdn->oid) >= sizeof(buf)) {
-			fprintf(fd, "  %s...: ", buf);
-		} else {
-			fprintf(fd, "  %s: ", buf);
-		}
+		snprintf(buf, sizeof(buf), "%s:", x509_rdn_type_string(rdn->type));
+		fprintf(fd, "  %-20s ", buf);
 
 		asinine_err_t err;
 		if ((err = asn1_string(&rdn->value, buf, sizeof(buf))) != ASININE_OK) {
@@ -146,7 +143,7 @@ validate_signature(const x509_pubkey_t *pubkey, x509_pubkey_params_t params,
 
 	if (mbedtls_rsa_pkcs1_verify(&rsa, NULL, NULL, MBEDTLS_RSA_PUBLIC, digest,
 	        0, hash, sig->data) != 0) {
-		res = ASININE_ERR_INVALID;
+		res = ASININE_ERR_UNTRUSTED_SIGNATURE;
 		goto error;
 	}
 
@@ -164,7 +161,7 @@ dump_certificates(const uint8_t *contents, size_t length) {
 	asn1_init(&parser, contents, length);
 
 	while (!asn1_end(&parser)) {
-		asinine_err_t err = x509_parse(&parser, &cert);
+		asinine_err_t err = x509_parse_cert(&parser, &cert);
 		if (err != ASININE_OK) {
 			fprintf(stderr, "Invalid certificate: %s\n", asinine_strerror(err));
 			return err;
@@ -196,17 +193,17 @@ validate_path(const uint8_t *trust, size_t trust_length,
 	asn1_parser_t parser;
 	asn1_init(&parser, contents, length);
 
-	asinine_err_t err = x509_parse(&parser, &cert);
+	asinine_err_t err = x509_parse_cert(&parser, &cert);
 	if (err != ASININE_OK) {
 		fprintf(stderr, "Invalid certificate: %s\n", asinine_strerror(err));
-		return false;
+		return ASININE_ERR_INVALID;
 	}
 
 	err = find_issuer(trust, trust_length, &cert, &issuer);
 	if (err != ASININE_OK) {
 		fprintf(stderr, "Can't find issuer: %s\n", asinine_strerror(err));
 		dump_name(stderr, &cert.issuer);
-		return false;
+		return ASININE_ERR_UNTRUSTED_ISSUER;
 	}
 
 	x509_path_init(&path, &issuer, &now, validate_signature, NULL);
@@ -220,7 +217,7 @@ validate_path(const uint8_t *trust, size_t trust_length,
 			return err;
 		}
 
-		err = x509_parse(&parser, &cert);
+		err = x509_parse_cert(&parser, &cert);
 		if (err != ASININE_OK) {
 			fprintf(stderr, "Invalid certificate: %s\n", asinine_strerror(err));
 			return err;

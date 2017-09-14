@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include <stdarg.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -15,14 +16,14 @@
 #define OID_VALUE_MASK ((1 << 7) - 1)
 #define OID_VALUE_BITS_PER_BYTE 7
 
-static int
+static bool
 append_arc(asn1_oid_t *oid, asn1_oid_arc_t arc) {
 	if (oid->num >= ASN1_OID_MAXIMUM_DEPTH) {
-		return 0;
+		return false;
 	}
 
 	oid->arcs[oid->num++] = arc;
-	return 1;
+	return true;
 }
 
 // 8.19

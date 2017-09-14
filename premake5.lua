@@ -51,4 +51,4 @@ workspace "Asinine"
 		language "C"
 		links { "asinine" }
 
-		files { "include/tests/*.h", "src/tests/*.c" }
+		files { "include/tests/*.h", "src/tests/*.c", "src/utils/load.c" }

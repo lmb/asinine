@@ -8,5 +8,7 @@
 base="$(dirname "$0")"
 
 for cert in $base/../testcerts/*.json; do
-    "$base/check.sh" "$cert" > /dev/null || echo "$(realpath --relative-base="$PWD" "$cert")"
+    if ! "$base/check.sh" "$cert" > /dev/null; then
+        echo "$(realpath --relative-base="$PWD" "$cert")"
+    fi
 done
