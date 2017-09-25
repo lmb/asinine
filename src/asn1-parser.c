@@ -194,7 +194,7 @@ asinine_err_t
 asn1_force_push(asn1_parser_t *parser) {
 	const asn1_token_t *token = &parser->token;
 
-	if (parser->depth + 1 >= NUM(parser->stack)) {
+	if (parser->depth + 1 > NUM(parser->stack)) {
 		return ASININE_ERR_UNSUPPORTED_NESTING;
 	}
 

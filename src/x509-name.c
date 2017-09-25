@@ -259,13 +259,30 @@ x509_parse_alt_names(asn1_parser_t *parser, x509_alt_names_t *alt_names) {
 				return ASININE_ERR_INVALID;
 			}
 			break;
+		case X509_ALT_NAME_DIRECTORY: // directoryName
+			if (type.encoding != ASN1_ENCODING_CONSTRUCTED) {
+				return ASININE_ERR_INVALID;
+			}
+
+			if (alt_names->directory_num + 1 > NUM(alt_names->directory)) {
+				return ASININE_ERR_MEMORY;
+			}
+
+			RETURN_ON_ERROR(asn1_push(parser));
+
+			RETURN_ON_ERROR(x509_parse_name(
+			    parser, &alt_names->directory[alt_names->directory_num]));
+			alt_names->directory_num++;
+
+			RETURN_ON_ERROR(asn1_pop(parser));
+
+			// Skip regular SAN decode
+			continue;
 		case 0: // otherName
 		case 3: // x400Address
-		case 4: // directoryName
 		case 5: // ediPartyName
 		case 8: // registeredID
 			return ASININE_ERR_UNSUPPORTED_NAME;
-			break;
 		default:
 			return ASININE_ERR_INVALID;
 		}

@@ -22,8 +22,8 @@ extern "C" {
 #define ASN1_OID_FROM_CONST(...) ASN1_OID_FROM_CONST_(__VA_ARGS__)
 #define ASN1_OID_FROM_CONST_(x, ...) ASN1_OID(__VA_ARGS__)
 
-#define ASN1_OID_MAXIMUM_DEPTH 12
-#define ASN1_MAXIMUM_DEPTH 10
+#define ASN1_OID_MAXIMUM_DEPTH (12)
+#define ASN1_MAXIMUM_DEPTH (12)
 
 typedef intptr_t asn1_word_t;
 typedef uintptr_t asn1_uword_t;

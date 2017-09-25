@@ -14,6 +14,7 @@ extern "C" {
 
 #define X509_MAX_RDNS (13)
 #define X509_MAX_ALT_NAMES (128)
+#define X509_MAX_ALT_DIRECTORY_NAMES (1)
 
 typedef enum x509_version {
 	X509_V1 = 0,
@@ -142,6 +143,7 @@ typedef struct x509_name {
 typedef enum x509_alt_name_type {
 	X509_ALT_NAME_RFC822NAME = 1,
 	X509_ALT_NAME_DNSNAME    = 2,
+	X509_ALT_NAME_DIRECTORY  = 4,
 	X509_ALT_NAME_URI        = 6,
 	X509_ALT_NAME_IP         = 7,
 } x509_alt_name_type_t;
@@ -155,6 +157,8 @@ typedef struct {
 typedef struct x509_alt_names {
 	size_t num;
 	x509_alt_name_t names[X509_MAX_ALT_NAMES];
+	size_t directory_num;
+	x509_name_t directory[X509_MAX_ALT_DIRECTORY_NAMES];
 } x509_alt_names_t;
 
 typedef struct x509_cert {
