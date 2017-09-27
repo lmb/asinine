@@ -190,7 +190,10 @@ parse_ecdsa_params(
 
 static asinine_err_t
 parse_ecdsa_pubkey(asn1_parser_t *parser, x509_pubkey_t *pubkey) {
-	pubkey->key.ecdsa.point     = parser->token.data;
-	pubkey->key.ecdsa.point_num = parser->token.length;
+	if (parser->token.length < 2) {
+		return ASININE_ERR_INVALID;
+	}
+	pubkey->key.ecdsa.point     = parser->token.data + 1;
+	pubkey->key.ecdsa.point_num = parser->token.length - 1;
 	return ASININE_OK;
 }

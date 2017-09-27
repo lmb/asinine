@@ -11,6 +11,7 @@
 #include <time.h>
 
 #include <mbedtls/bignum.h>
+#include <mbedtls/ecdsa.h>
 #include <mbedtls/md.h>
 #include <mbedtls/rsa.h>
 
@@ -94,27 +95,12 @@ get_current_time(asn1_time_t *now) {
 	now->second = (uint8_t)utc->tm_sec;
 }
 
-asinine_err_t
-validate_signature(const x509_pubkey_t *pubkey, x509_pubkey_params_t params,
-    const x509_signature_t *sig, const uint8_t *raw, size_t raw_num,
-    void *ctx) {
+static asinine_err_t
+validate_rsa_signature(const x509_pubkey_t *pubkey, x509_pubkey_params_t params,
+    const x509_signature_t *sig, const uint8_t *hash, size_t hash_len,
+    mbedtls_md_type_t digest) {
 	(void)params;
-	(void)ctx;
-
-	mbedtls_md_type_t digest;
-	switch (sig->algorithm) {
-	case X509_SIGNATURE_SHA256_RSA:
-		digest = MBEDTLS_MD_SHA256;
-		break;
-	case X509_SIGNATURE_SHA384_RSA:
-		digest = MBEDTLS_MD_SHA384;
-		break;
-	case X509_SIGNATURE_SHA512_RSA:
-		digest = MBEDTLS_MD_SHA512;
-		break;
-	default:
-		return ASININE_ERR_UNSUPPORTED;
-	}
+	(void)hash_len;
 
 	mbedtls_rsa_context rsa;
 	mbedtls_rsa_init(&rsa, MBEDTLS_RSA_PKCS_V15, MBEDTLS_MD_NONE);
@@ -135,12 +121,6 @@ validate_signature(const x509_pubkey_t *pubkey, x509_pubkey_params_t params,
 		goto error;
 	}
 
-	uint8_t hash[64]                 = {0};
-	const mbedtls_md_info_t *md_info = mbedtls_md_info_from_type(digest);
-	if (mbedtls_md(md_info, raw, raw_num, hash) != 0) {
-		goto error;
-	}
-
 	if (mbedtls_rsa_pkcs1_verify(&rsa, NULL, NULL, MBEDTLS_RSA_PUBLIC, digest,
 	        0, hash, sig->data) != 0) {
 		res = ASININE_ERR_UNTRUSTED_SIGNATURE;
@@ -151,6 +131,115 @@ validate_signature(const x509_pubkey_t *pubkey, x509_pubkey_params_t params,
 error:
 	mbedtls_rsa_free(&rsa);
 	return res;
+}
+
+static asinine_err_t
+validate_ecdsa_signature(const x509_pubkey_t *pubkey,
+    x509_pubkey_params_t params, const x509_signature_t *sig,
+    const uint8_t *hash, size_t hash_len, mbedtls_md_type_t digest) {
+	(void)digest;
+
+	mbedtls_ecp_group_id group_id;
+	switch (params.ecdsa_curve) {
+	case X509_ECDSA_CURVE_INVALID:
+		return ASININE_ERR_INVALID;
+	case X509_ECDSA_CURVE_SECP256R1:
+		group_id = MBEDTLS_ECP_DP_SECP256R1;
+		break;
+	case X509_ECDSA_CURVE_SECP384R1:
+		group_id = MBEDTLS_ECP_DP_SECP384R1;
+		break;
+	case X509_ECDSA_CURVE_SECP521R1:
+		group_id = MBEDTLS_ECP_DP_SECP521R1;
+		break;
+	}
+
+	mbedtls_ecdsa_context ecdsa;
+	mbedtls_ecdsa_init(&ecdsa);
+
+	asinine_err_t res = ASININE_ERR_MALFORMED;
+	if (mbedtls_ecp_group_load(&ecdsa.grp, group_id) != 0) {
+		goto error;
+	}
+
+	if (mbedtls_ecp_point_read_binary(&ecdsa.grp, &ecdsa.Q,
+	        pubkey->key.ecdsa.point, pubkey->key.ecdsa.point_num) != 0) {
+		goto error;
+	}
+
+	if (mbedtls_ecp_check_pubkey(&ecdsa.grp, &ecdsa.Q) != 0) {
+		goto error;
+	}
+
+	if (mbedtls_ecdsa_read_signature(
+	        &ecdsa, hash, hash_len, sig->data, sig->num) != 0) {
+		res = ASININE_ERR_UNTRUSTED_SIGNATURE;
+		goto error;
+	}
+
+	res = ASININE_OK;
+error:
+	mbedtls_ecdsa_free(&ecdsa);
+	return res;
+}
+
+asinine_err_t
+validate_signature(const x509_pubkey_t *pubkey, x509_pubkey_params_t params,
+    const x509_signature_t *sig, const uint8_t *raw, size_t raw_num,
+    void *ctx) {
+	(void)ctx;
+
+	mbedtls_md_type_t digest;
+	switch (sig->algorithm) {
+	case X509_SIGNATURE_INVALID:
+		return ASININE_ERR_INVALID_ALGORITHM;
+	case X509_SIGNATURE_SHA256_RSA:
+	case X509_SIGNATURE_SHA256_ECDSA:
+	case X509_SIGNATURE_SHA256_DSA:
+		digest = MBEDTLS_MD_SHA256;
+		break;
+	case X509_SIGNATURE_SHA384_RSA:
+	case X509_SIGNATURE_SHA384_ECDSA:
+		digest = MBEDTLS_MD_SHA384;
+		break;
+	case X509_SIGNATURE_SHA512_RSA:
+	case X509_SIGNATURE_SHA512_ECDSA:
+		digest = MBEDTLS_MD_SHA512;
+		break;
+	case X509_SIGNATURE_MD2_RSA:
+	case X509_SIGNATURE_MD5_RSA:
+	case X509_SIGNATURE_SHA1_RSA:
+		return ASININE_ERR_DEPRECATED;
+	}
+
+	uint8_t hash[64]                 = {0};
+	const mbedtls_md_info_t *md_info = mbedtls_md_info_from_type(digest);
+	if (mbedtls_md(md_info, raw, raw_num, hash) != 0) {
+		return ASININE_ERR_MALFORMED;
+	}
+
+	size_t hash_len = (size_t)mbedtls_md_get_size(md_info);
+
+	switch (sig->algorithm) {
+	case X509_SIGNATURE_INVALID:
+		return ASININE_ERR_INVALID;
+	case X509_SIGNATURE_SHA256_RSA:
+	case X509_SIGNATURE_SHA384_RSA:
+	case X509_SIGNATURE_SHA512_RSA:
+		return validate_rsa_signature(
+		    pubkey, params, sig, hash, hash_len, digest);
+	case X509_SIGNATURE_SHA256_ECDSA:
+	case X509_SIGNATURE_SHA384_ECDSA:
+	case X509_SIGNATURE_SHA512_ECDSA:
+		return validate_ecdsa_signature(
+		    pubkey, params, sig, hash, hash_len, digest);
+	case X509_SIGNATURE_MD2_RSA:
+	case X509_SIGNATURE_MD5_RSA:
+	case X509_SIGNATURE_SHA1_RSA:
+		return ASININE_ERR_DEPRECATED;
+	case X509_SIGNATURE_SHA256_DSA:
+		return ASININE_ERR_UNSUPPORTED_ALGO;
+	}
 }
 
 static asinine_err_t
