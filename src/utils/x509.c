@@ -249,17 +249,25 @@ dump_certificates(const uint8_t *contents, size_t length) {
 	asn1_parser_t parser;
 	asn1_init(&parser, contents, length);
 
+	asinine_err_t res = ASININE_OK;
 	while (!asn1_end(&parser)) {
 		asinine_err_t err = x509_parse_cert(&parser, &cert);
 		if (err != ASININE_OK) {
 			fprintf(stderr, "Invalid certificate: %s\n", asinine_strerror(err));
-			return err;
-		}
+			if (res == ASININE_OK) {
+				res = err;
+			}
 
-		dump_certificate(&cert);
+			err = asn1_abort(&parser);
+			if (err != ASININE_OK) {
+				return err;
+			}
+		} else {
+			dump_certificate(&cert);
+		}
 	}
 
-	return ASININE_OK;
+	return res;
 }
 
 static asinine_err_t
