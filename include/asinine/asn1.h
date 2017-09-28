@@ -52,6 +52,7 @@ typedef enum asinine_err {
 	ASININE_ERR_UNTRUSTED_ISSUER       = 60,
 	ASININE_ERR_UNTRUSTED_SIGNATURE    = 61,
 	ASININE_ERR_DEPRECATED             = 70,
+	ASININE_ERR_NOT_FOUND              = 71,
 } asinine_err_t;
 
 /**

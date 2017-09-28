@@ -455,6 +455,7 @@ asinine_strerror(asinine_err_t err) {
 		case_for_tag(ASININE_ERR_UNTRUSTED_ISSUER);
 		case_for_tag(ASININE_ERR_UNTRUSTED_SIGNATURE);
 		case_for_tag(ASININE_ERR_DEPRECATED);
+		case_for_tag(ASININE_ERR_NOT_FOUND);
 	}
 #undef case_for_tag
 }

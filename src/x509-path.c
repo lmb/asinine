@@ -37,8 +37,7 @@ x509_find_issuer(
 		}
 	}
 
-	// TODO: Better return code
-	return ASININE_ERR_INVALID;
+	return ASININE_ERR_NOT_FOUND;
 }
 
 void
