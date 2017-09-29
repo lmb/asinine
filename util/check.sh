@@ -29,10 +29,10 @@ if [ "$(jq -r '.["validation"]["nss"]["trusted_path"]' "$1")" != "true" ]; then
 fi
 
 base="$(dirname "$1")"
-certs=($(jq -r --arg pre "$base/" --arg post .der '.["validation"]["nss"]["paths"][0][0:-1]|reverse|.[]|$pre+.+$post' "$1"))
+certs=($(jq -r --arg pre "$base/" --arg post .der '.["validation"]["nss"]["paths"]|sort_by(.|length)[0][0:-1]|reverse|.[]|$pre+.+$post' "$1"))
 
 if [ $debug = no ]; then
-	cat "${certs[@]}" | ./bin/Debug/x509 --check "$base/cacert.der" -
+	cat "${certs[@]}" | ./bin/Debug/x509 --check "$base/nss.der" -
 	exit $?
 else
 	for cert in "${certs[@]}"; do
