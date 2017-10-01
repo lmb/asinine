@@ -227,18 +227,18 @@ parse_optional(asn1_parser_t *parser, x509_cert_t *cert) {
 	const asn1_token_t *const token = &parser->token;
 
 	if (cert->version >= X509_V2) {
-		NEXT_CHILD(parser);
+		OPTIONAL_TOKEN(parser);
 
 		// issuerUniqueID
 		if (asn1_is(token, ASN1_CLASS_CONTEXT, 1, ASN1_ENCODING_PRIMITIVE)) {
 			// TODO: Do something
-			NEXT_CHILD(parser);
+			OPTIONAL_TOKEN(parser);
 		}
 
 		// subjectUniqueID
 		if (asn1_is(token, ASN1_CLASS_CONTEXT, 2, ASN1_ENCODING_PRIMITIVE)) {
 			// TODO: Do something
-			NEXT_CHILD(parser);
+			OPTIONAL_TOKEN(parser);
 		}
 
 		// extensions
@@ -496,11 +496,11 @@ parse_extn_basic_constraints(asn1_parser_t *parser, x509_cert_t *cert) {
 	cert->is_ca               = false;
 	cert->path_len_constraint = -1;
 
-	NEXT_CHILD(parser);
+	OPTIONAL_TOKEN(parser);
 
 	if (asn1_is_bool(&parser->token)) {
 		RETURN_ON_ERROR(asn1_bool(&parser->token, &cert->is_ca));
-		NEXT_CHILD(parser);
+		OPTIONAL_TOKEN(parser);
 	}
 
 	asn1_word_t value;

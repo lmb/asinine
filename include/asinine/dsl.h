@@ -8,7 +8,7 @@
 #include "asinine/errors.h"
 
 #define NEXT_TOKEN(parser) RETURN_ON_ERROR(asn1_next(parser))
-#define NEXT_CHILD(parser) \
+#define OPTIONAL_TOKEN(parser) \
 	do { \
 		if (asn1_eof(parser)) { \
 			return asn1_pop(parser); \
