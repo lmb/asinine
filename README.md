@@ -2,77 +2,78 @@ libasinine
 ==========
 
 `libasinine` provides decoding facilities of DER encoded ASN.1 data, as well as
-X.509 certificates. The focus is on small size and static memory allocation,
+X.509v3 (and earlier) certificates. The focus is on small size and static memory allocation,
 making it suitable for use in an embedded environment. In general, you are
 encouraged to ship `libasinine` with your code, and link to it statically.
 
 Status
 ======
 
-The library is still alpha quality. It (should) parse X.509v1 certificates, v3
-is work-in-progress. There are some type conversion routines in `asn1-types.c`,
-which allow basic interpretation of the different types.
+The library is still alpha quality, but correctly parses and validates 98% of the
+certificates used by the Alexa Top 10k sites.
+
 Be warned: `libasinine` will shoot you in the foot and then run away with the
 savings you hid under your mattress.
 
 Requirements
 ============
 
-Right now, the library itself is quite lightweight. To properly handle ASN.1
-time types it requires 64bit unsigned integers. Even slow emulation will do the
-trick though, and smallish "bignum" support could be added if need be.
-Also, a compiler like GCC or Clang (on which development happens) is
-recommended, and the only platform expressly supported. Compiling from git also
-requires premake4.
+* 64bit integers (emulation is fine)
+* GCC / Clang (C99)
+* libc
+* Optional: mbedtls (for utilities)
 
 Compiling
 =========
 
 ```bash
-> premake4 gmake # or other targets, see premake4 --help
-> make
-> ./tests
+> make config=debug tests
+> ./bin/Debug/tests
 ```
 
 Usage
 =====
 
-The current API is, of course, subject to change. Have a look at `x509.c` for a
+The current API is subject to change. Have a look at `x509.c` for a
 more complex / convoluted example.
 
 ```C
-#include <asinine/asn1.h>
+#include <stdint.h>
+#include <asinine/dsl.h>
 
 /* ... */
 
-bool parse_asn1(const uint8_t *data, size_t length)
-{
+asinine_err_t
+parse_asn1(const uint8_t *data, size_t length) {
 	asn1_parser_t parser;
-	asn1_token_t token;
+	asn1_init(&parser, data, length);
 
-	if (asn1_init(&parser, &token, data, length) != ASININE_OK) {
-		// The return code will shed some light on what went wrong
-		return false;
-	}
-
-	if (asn1_next(&parser) != ASININE_OK) {
-		return false;
-	}
+	NEXT_TOKEN(&parser);
 
 	// "token" now contains the next token
-	if (asn1_is_sequence(&token)) {
-		// Do something
+	if (!asn1_is_seq(parser.token)) {
+		return ERROR(ASININE_ERR_INVALID, "expected sequence");
 	}
 
 	// Iterate over unknown number of children
-	asn1_token_t parent = token;
+	RETURN_ON_ERROR(asn1_push_seq(&parser));
 
-	while (!asn1_eot(&parser, &parent)) {
-		// Call asn1_parser_next and then handle the token
+	while (!asn1_eof(&parser)) {
+		// Call NEXT_TOKEN and process it
+	}
+
+	// Undo the push from before
+	RETURN_ON_ERROR(asn1_pop(&parser));
+
+	// Do some more parsing
+
+	// Make sure there the buffer has been fully parsed
+	if (!asn1_end(&parser)) {
+		return ERROR(ASININE_ERR_MALFORMED, "trailing data");
 	}
 
 	// Yay!
-	return true;
+	return ERROR(ASININE_OK, NULL);
 }
 ```
 
