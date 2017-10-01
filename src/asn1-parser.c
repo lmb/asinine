@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include "asinine/asn1.h"
+#include "asinine/errors.h"
 #include "internal/macros.h"
 
 #if ASN1_MAXIMUM_DEPTH > UINT8_MAX
@@ -73,7 +74,7 @@ asn1_next(asn1_parser_t *parser) {
 	asn1_token_t *const token = &parser->token;
 
 	if (parser->current >= (const uint8_t *)parser->end) {
-		return ASININE_ERR_MALFORMED;
+		return ERROR(ASININE_ERR_MALFORMED, "EOF");
 	}
 
 	*token       = (asn1_token_t){0};
@@ -93,7 +94,7 @@ asn1_next(asn1_parser_t *parser) {
 
 		do {
 			if (!advance_pos(parser, 1)) {
-				return ASININE_ERR_MALFORMED_TAG;
+				return ERROR(ASININE_ERR_MALFORMED, "token: tag: truncated");
 			}
 
 			token->type.tag <<= MULTIPART_TAG_BITS_PER_BYTE;
@@ -102,14 +103,14 @@ asn1_next(asn1_parser_t *parser) {
 			// TODO: Could this overflow bits?
 			bits += MULTIPART_TAG_BITS_PER_BYTE;
 			if (bits > ASN1_TYPE_TAG_BITS) {
-				return ASININE_ERR_MEMORY;
+				return ERROR(ASININE_ERR_MEMORY, "token: tag: too large");
 			}
 		} while (*parser->current & MULTIPART_TAG_CONTINUATION);
 	}
 
 	// Length (8.1.3)
 	if (!advance_pos(parser, 1)) {
-		return ASININE_ERR_MALFORMED;
+		return ERROR(ASININE_ERR_MALFORMED, "token: truncated header");
 	}
 
 	if (CONTENT_LENGTH_IS_LONG_FORM(*parser->current)) {
@@ -118,21 +119,22 @@ asn1_next(asn1_parser_t *parser) {
 		num_bytes = *parser->current & CONTENT_LENGTH_MASK;
 
 		if (num_bytes == CONTENT_LENGTH_LONG_RESERVED) {
-			return ASININE_ERR_MALFORMED_LENGTH;
+			return ERROR(ASININE_ERR_MALFORMED, "token: length: reserved");
 		} else if (num_bytes == 0) {
 			// Indefinite form is forbidden (X.690 11/2008 8.1.3.6)
-			return ASININE_ERR_MALFORMED_LENGTH;
+			return ERROR(ASININE_ERR_MALFORMED, "token: length: indefinite");
 		} else if (num_bytes > sizeof token->length) {
-			return ASININE_ERR_UNSUPPORTED_LENGTH;
+			return ERROR(ASININE_ERR_UNSUPPORTED, "token: length: too long");
 		}
 
 		for (i = 0; i < num_bytes; i++) {
 			if (!advance_pos(parser, 1)) {
-				return ASININE_ERR_MALFORMED_LENGTH;
+				return ERROR(ASININE_ERR_MALFORMED, "token: length: truncated");
 			}
 
 			if (token->length == 0 && *parser->current == 0) {
-				return ASININE_ERR_MALFORMED_LENGTH;
+				return ERROR(
+				    ASININE_ERR_MALFORMED, "token: lenght: leading zero");
 			}
 
 			token->length = (token->length << 8) | *parser->current;
@@ -140,7 +142,8 @@ asn1_next(asn1_parser_t *parser) {
 
 		// 10.1
 		if (token->length < CONTENT_LENGTH_LONG_MIN) {
-			return ASININE_ERR_MALFORMED_LENGTH;
+			return ERROR(ASININE_ERR_MALFORMED,
+			    "token: length: below long-form minimum");
 		}
 	} else {
 		token->length = *parser->current & CONTENT_LENGTH_MASK;
@@ -151,7 +154,7 @@ asn1_next(asn1_parser_t *parser) {
 		const uint8_t *data = parser->current + 1;
 
 		if (!advance_pos(parser, token->length)) {
-			return ASININE_ERR_MALFORMED_LENGTH;
+			return ERROR(ASININE_ERR_MALFORMED, "token: truncated content");
 		}
 
 		token->data = data;
@@ -161,13 +164,13 @@ asn1_next(asn1_parser_t *parser) {
 	// The error condition for this is checked on the next call of this
 	// function.
 	parser->current++;
-	return ASININE_OK;
+	return ERROR(ASININE_OK, NULL);
 }
 
 asinine_err_t
 asn1_abort(asn1_parser_t *parser) {
 	if (parser->depth == 0) {
-		return ASININE_ERR_INVALID;
+		return ERROR(ASININE_ERR_INVALID, "abort: already at root");
 	}
 
 	const uint8_t *end   = parser->stack[0];
@@ -178,13 +181,13 @@ asn1_abort(asn1_parser_t *parser) {
 
 	size_t length = (size_t)(end - start);
 	asn1_init(parser, start, length);
-	return ASININE_OK;
+	return ERROR(ASININE_OK, NULL);
 }
 
 asinine_err_t
 asn1_push(asn1_parser_t *parser) {
 	if (parser->token.type.encoding != ASN1_ENCODING_CONSTRUCTED) {
-		return ASININE_ERR_INVALID;
+		return ERROR(ASININE_ERR_INVALID, "push: not constructed");
 	}
 
 	return asn1_force_push(parser);
@@ -195,7 +198,7 @@ asn1_force_push(asn1_parser_t *parser) {
 	const asn1_token_t *token = &parser->token;
 
 	if (parser->depth + 1 > NUM(parser->stack)) {
-		return ASININE_ERR_UNSUPPORTED_NESTING;
+		return ERROR(ASININE_ERR_UNSUPPORTED, "push: nested too deep");
 	}
 
 	parser->stack[parser->depth] = parser->end;
@@ -205,17 +208,14 @@ asn1_force_push(asn1_parser_t *parser) {
 		// Empty tokens are valid, we just have to make sure that eof returns
 		// true for them.
 		parser->end = parser->current;
-		return ASININE_OK;
+		return ERROR(ASININE_OK, NULL);
 	}
 
 	if (asn1_is_bitstring(token)) {
 		// Bitstrings have a pesky leading byte which indicates how many
 		// bits in the last data byte are unused. This isn't part of the
 		// encoded data and needs to be skipped.
-		asinine_err_t err;
-		if ((err = asn1_bitstring(token, NULL, 0)) != ASININE_OK) {
-			return err;
-		}
+		RETURN_ON_ERROR(asn1_bitstring(token, NULL, 0));
 		parser->current = token->data + 1;
 	} else {
 		// We've already skipped to the end of the token, so reset the current
@@ -224,62 +224,52 @@ asn1_force_push(asn1_parser_t *parser) {
 	}
 	parser->end = token->data + token->length;
 
-	return ASININE_OK;
+	return ERROR(ASININE_OK, NULL);
 }
 
 asinine_err_t
 asn1_pop(asn1_parser_t *parser) {
 	if (parser->depth == 0) {
-		return ASININE_ERR_INVALID;
+		return ERROR(ASININE_ERR_INVALID, "pop: already at root");
 	}
 
 	// Don't pop tokens which havent been fully parsed
 	if (!asn1_eof(parser)) {
-		return ASININE_ERR_MALFORMED;
+		return ERROR(ASININE_ERR_MALFORMED, "pop: parent not fully parsed");
 	}
 
 	parser->depth--;
 	parser->end                  = parser->stack[parser->depth];
 	parser->stack[parser->depth] = NULL;
-	return ASININE_OK;
+	return ERROR(ASININE_OK, NULL);
 }
 
 asinine_err_t
 asn1_tokens(asn1_parser_t *parser, void *ctx,
     void (*fn)(const asn1_token_t *, uint8_t depth, void *ctx)) {
 	while (!asn1_end(parser)) {
-		asinine_err_t err;
-		if ((err = asn1_next(parser)) != ASININE_OK) {
-			return err;
-		}
+		RETURN_ON_ERROR(asn1_next(parser));
 
 		fn(&parser->token, parser->depth, ctx);
 
 		if (parser->token.type.encoding == ASN1_ENCODING_CONSTRUCTED) {
-			if ((err = asn1_push(parser)) != ASININE_OK) {
-				return err;
-			}
+			RETURN_ON_ERROR(asn1_push(parser));
 		}
 
 		while (asn1_eof(parser)) {
-			if ((err = asn1_pop(parser)) != ASININE_OK) {
-				return err;
-			}
+			RETURN_ON_ERROR(asn1_pop(parser));
 		}
 	}
 
-	return ASININE_OK;
+	return ERROR(ASININE_OK, NULL);
 }
 
 asinine_err_t
 asn1_push_seq(asn1_parser_t *parser) {
-	asinine_err_t err;
-	if ((err = asn1_next(parser)) != ASININE_OK) {
-		return err;
-	}
+	RETURN_ON_ERROR(asn1_next(parser));
 
 	if (!asn1_is_sequence(&parser->token)) {
-		return ASININE_ERR_INVALID;
+		return ERROR(ASININE_ERR_INVALID, "push: token not a sequence");
 	}
 
 	return asn1_push(parser);

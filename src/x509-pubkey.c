@@ -81,7 +81,7 @@ x509_parse_pubkey(asn1_parser_t *parser, x509_pubkey_t *pubkey,
 
 	NEXT_TOKEN(parser);
 	if (!asn1_is_oid(&parser->token)) {
-		return ASININE_ERR_INVALID;
+		return ERROR(ASININE_ERR_INVALID, "pubkey: token isn't an OID");
 	}
 
 	asn1_oid_t oid;
@@ -89,7 +89,7 @@ x509_parse_pubkey(asn1_parser_t *parser, x509_pubkey_t *pubkey,
 
 	const pubkey_lookup_t *result = find_pubkey_algorithm(&oid);
 	if (result == NULL) {
-		return ASININE_ERR_UNSUPPORTED_ALGO;
+		return ERROR(ASININE_ERR_UNSUPPORTED, "pubkey: algorithm unknown");
 	}
 
 	pubkey->algorithm = result->algorithm;
@@ -101,7 +101,7 @@ x509_parse_pubkey(asn1_parser_t *parser, x509_pubkey_t *pubkey,
 
 	NEXT_TOKEN(parser);
 	if (!asn1_is_bitstring(&parser->token)) {
-		return ASININE_ERR_INVALID;
+		return ERROR(ASININE_ERR_INVALID, "pubkey: token isn't a bitstring");
 	}
 
 	if (result->broken_encoding) {
@@ -135,7 +135,7 @@ parse_rsa_pubkey(asn1_parser_t *parser, x509_pubkey_t *pubkey) {
 	// modulus (n)
 	NEXT_TOKEN(parser);
 	if (!asn1_is_int(token)) {
-		return ASININE_ERR_INVALID;
+		return ERROR(ASININE_ERR_INVALID, "rsa pubkey: token isn't an int");
 	}
 
 	RETURN_ON_ERROR(
@@ -144,7 +144,7 @@ parse_rsa_pubkey(asn1_parser_t *parser, x509_pubkey_t *pubkey) {
 	// public exponent (e)
 	NEXT_TOKEN(parser);
 	if (!asn1_is_int(token)) {
-		return ASININE_ERR_INVALID;
+		return ERROR(ASININE_ERR_INVALID, "rsa pubkey: token isn't an int");
 	}
 
 	RETURN_ON_ERROR(
@@ -172,7 +172,7 @@ parse_ecdsa_params(
 	}
 
 	if (!asn1_is_oid(&parser->token)) {
-		return ASININE_ERR_INVALID;
+		return ERROR(ASININE_ERR_INVALID, "ecdsa params: token isn't an OID");
 	}
 
 	asn1_oid_t oid;
@@ -180,20 +180,20 @@ parse_ecdsa_params(
 
 	x509_ecdsa_curve_t curve = find_curve(&oid);
 	if (curve == X509_ECDSA_CURVE_INVALID) {
-		return ASININE_ERR_UNSUPPORTED_ALGO;
+		return ERROR(ASININE_ERR_UNSUPPORTED, "ecsda params: unkown algorithm");
 	}
 
 	*has_params         = true;
 	params->ecdsa_curve = curve;
-	return ASININE_OK;
+	return ERROR(ASININE_OK, NULL);
 }
 
 static asinine_err_t
 parse_ecdsa_pubkey(asn1_parser_t *parser, x509_pubkey_t *pubkey) {
 	if (parser->token.length < 2) {
-		return ASININE_ERR_INVALID;
+		return ERROR(ASININE_ERR_INVALID, "ecdsa pubkey: too short");
 	}
 	pubkey->key.ecdsa.point     = parser->token.data + 1;
 	pubkey->key.ecdsa.point_num = parser->token.length - 1;
-	return ASININE_OK;
+	return ERROR(ASININE_OK, NULL);
 }

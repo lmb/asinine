@@ -8,6 +8,8 @@
 #include "asinine/dsl.h"
 #include "asinine/x509.h"
 
+#include "internal/macros.h"
+
 static bool signature_is_compatible(
     x509_sig_algo_t sig_algo, x509_pubkey_algo_t pubkey_algo);
 
@@ -21,23 +23,20 @@ x509_find_issuer(
     asn1_parser_t *parser, const x509_cert_t *cert, x509_cert_t *issuer) {
 	while (!asn1_end(parser)) {
 		asinine_err_t err = x509_parse_cert(parser, issuer);
-		if (err != ASININE_OK) {
+		if (err.errno != ASININE_OK) {
 			// We can't parse this certificate. Rather than giving up
 			// parse the next one, in the hopes that we don't need
 			// this one.
-			err = asn1_abort(parser);
-			if (err != ASININE_OK) {
-				return err;
-			}
+			RETURN_ON_ERROR(asn1_abort(parser));
 			continue;
 		}
 
 		if (x509_name_eq(&issuer->subject, &cert->issuer, NULL)) {
-			return ASININE_OK;
+			return ERROR(ASININE_OK, NULL);
 		}
 	}
 
-	return ASININE_ERR_NOT_FOUND;
+	return ERROR(ASININE_ERR_NOT_FOUND, "issuer: no match in trust store");
 }
 
 void
@@ -60,19 +59,17 @@ process_certificate(x509_path_t *path, const x509_cert_t *cert) {
 
 	if (!signature_is_compatible(
 	        cert->signature.algorithm, path->public_key.algorithm)) {
-		return ASININE_ERR_INVALID_ALGORITHM;
+		return ERROR(ASININE_ERR_INVALID,
+		    "signature: algorithm doesn't match public key");
 	}
 
-	asinine_err_t err = path->cb(&path->public_key, path->public_key_parameters,
-	    &cert->signature, cert->raw, cert->raw_num, path->ctx);
-	if (err != ASININE_OK) {
-		return err;
-	}
+	RETURN_ON_ERROR(path->cb(&path->public_key, path->public_key_parameters,
+	    &cert->signature, cert->raw, cert->raw_num, path->ctx));
 
 	// 6.1.3. (a) (2)
 	if (asn1_time_cmp(&cert->valid_from, &path->now) > 0 ||
 	    asn1_time_cmp(&cert->valid_to, &path->now) < 0) {
-		return ASININE_ERR_INVALID_EXPIRED;
+		return ERROR(ASININE_ERR_EXPIRED, NULL);
 	}
 
 	// 6.1.3. (a) (3)
@@ -80,7 +77,7 @@ process_certificate(x509_path_t *path, const x509_cert_t *cert) {
 
 	// 6.1.3. (a) (4)
 	if (!x509_name_eq(&cert->issuer, &path->issuer_name, NULL)) {
-		return ASININE_ERR_INVALID_ISSUER;
+		return ERROR(ASININE_ERR_INVALID, "issuer: no match");
 	}
 
 	// 6.1.3. (b)
@@ -99,15 +96,12 @@ process_certificate(x509_path_t *path, const x509_cert_t *cert) {
 	// 6.1.4. (a)
 	// 6.1.4. (b)
 	// Policy mappings extension is not supported
-	return ASININE_OK;
+	return ERROR(ASININE_OK, NULL);
 }
 
 asinine_err_t
 x509_path_add(x509_path_t *path, const x509_cert_t *cert) {
-	asinine_err_t err;
-	if ((err = process_certificate(path, cert)) != ASININE_OK) {
-		return err;
-	}
+	RETURN_ON_ERROR(process_certificate(path, cert));
 
 	// 6.1.4. (c)
 	path->issuer_name = cert->subject;
@@ -135,19 +129,19 @@ x509_path_add(x509_path_t *path, const x509_cert_t *cert) {
 
 	// 6.1.4. (k)
 	if (cert->version != X509_V3) {
-		return ASININE_ERR_INVALID_VERSION;
+		return ERROR(ASININE_ERR_INVALID, "certficiate: not X509v3");
 	}
 
 	// We don't enforce the presence of basic constraints, but
 	// is_ca can never be true without one present, so this works, too.
 	if (!cert->is_ca) {
-		return ASININE_ERR_INVALID_NOT_CA;
+		return ERROR(ASININE_ERR_INVALID, "certificate: not a CA");
 	}
 
 	// 6.1.4. (l)
 	if (!cert_is_self_issued(cert) && path->max_length != -1) {
 		if (path->max_length < 1) {
-			return ASININE_ERR_INVALID_PATH_LEN;
+			return ERROR(ASININE_ERR_INVALID, "path: too long");
 		}
 		path->max_length--;
 	}
@@ -162,7 +156,8 @@ x509_path_add(x509_path_t *path, const x509_cert_t *cert) {
 	// 6.1.4. (m)
 	if (cert->key_usage != 0 &&
 	    (cert->key_usage & X509_KEYUSE_KEY_CERT_SIGN) == 0) {
-		return ASININE_ERR_INVALID_KEYUSE;
+		return ERROR(
+		    ASININE_ERR_INVALID, "certificate: missing signing key usage");
 	}
 
 	// 6.1.4. (o)
@@ -170,18 +165,15 @@ x509_path_add(x509_path_t *path, const x509_cert_t *cert) {
 	// TODO: Process any other non-critical extensions
 
 	if (cert->deprecated) {
-		return ASININE_ERR_DEPRECATED;
+		return ERROR(ASININE_ERR_DEPRECATED, NULL);
 	}
 
-	return ASININE_OK;
+	return ERROR(ASININE_OK, NULL);
 }
 
 asinine_err_t
 x509_path_end(x509_path_t *path, const x509_cert_t *cert) {
-	asinine_err_t err;
-	if ((err = process_certificate(path, cert)) != ASININE_OK) {
-		return err;
-	}
+	RETURN_ON_ERROR(process_certificate(path, cert));
 
 	// 6.1.5. Wrap-Up Procedure
 
@@ -210,10 +202,10 @@ x509_path_end(x509_path_t *path, const x509_cert_t *cert) {
 	// valid_policy_tree is not supported
 
 	if (cert->deprecated) {
-		return ASININE_ERR_DEPRECATED;
+		return ERROR(ASININE_ERR_DEPRECATED, NULL);
 	}
 
-	return ASININE_OK;
+	return ERROR(ASININE_OK, NULL);
 }
 
 static bool

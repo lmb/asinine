@@ -8,6 +8,7 @@
 #include <string.h>
 
 #include "asinine/asn1.h"
+#include "asinine/errors.h"
 #include "internal/macros.h"
 
 #define OID_MINIMUM_ARCS 2
@@ -38,14 +39,14 @@ asn1_oid(const asn1_token_t *token, asn1_oid_t *oid) {
 	*oid = (asn1_oid_t){0};
 
 	if (token->data == NULL || token->length == 0) {
-		return ASININE_ERR_MALFORMED;
+		return ERROR(ASININE_ERR_MALFORMED, "OID: zero length");
 	}
 
 	// 8.19.2 "[...] last in the series: bit 8 of the last octet is zero; [...]"
 	// Since we need to have the end of a series at the end of this token, we
 	// check here.
 	if ((*(token->data + token->length - 1) & OID_CONTINUATION_MASK) != 0) {
-		return ASININE_ERR_MALFORMED;
+		return ERROR(ASININE_ERR_MALFORMED, "OID: no end marker");
 	}
 
 	arc          = 0;
@@ -56,14 +57,14 @@ asn1_oid(const asn1_token_t *token, asn1_oid_t *oid) {
 		if (arc == 0 && *data == 0x80) {
 			// 8.19.2 "the leading octet of the subidentifier shall not have the
 			// value 0x80"
-			return ASININE_ERR_MALFORMED;
+			return ERROR(ASININE_ERR_MALFORMED, "OID: leading byte is zero");
 		}
 
 		arc = (arc << OID_VALUE_BITS_PER_BYTE) | (*data & OID_VALUE_MASK);
 		arc_bits += OID_VALUE_BITS_PER_BYTE;
 
 		if (arc_bits > sizeof(arc) * 8) {
-			return ASININE_ERR_MEMORY;
+			return ERROR(ASININE_ERR_MEMORY, "OID: arc too long");
 		}
 
 		if ((*data & OID_CONTINUATION_MASK) == 0) {
@@ -74,7 +75,7 @@ asn1_oid(const asn1_token_t *token, asn1_oid_t *oid) {
 				asn1_oid_arc_t x = MIN(arc, 80) / 40;
 
 				if (!append_arc(oid, x)) {
-					return ASININE_ERR_MEMORY;
+					return ERROR(ASININE_ERR_MEMORY, "OID: too many arcs");
 				}
 
 				arc          = (arc - (x * 40));
@@ -82,7 +83,7 @@ asn1_oid(const asn1_token_t *token, asn1_oid_t *oid) {
 			}
 
 			if (!append_arc(oid, arc)) {
-				return ASININE_ERR_MEMORY;
+				return ERROR(ASININE_ERR_MEMORY, "OID: too many arcs");
 			}
 
 			arc      = 0;
@@ -90,7 +91,7 @@ asn1_oid(const asn1_token_t *token, asn1_oid_t *oid) {
 		}
 	}
 
-	return ASININE_OK;
+	return ERROR(ASININE_OK, NULL);
 }
 
 static size_t

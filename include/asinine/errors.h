@@ -4,14 +4,13 @@
 
 #pragma once
 
-#include "asinine/asn1.h"
-#include "asinine/errors.h"
+#define ERROR(e, r) \
+	(asinine_err_t) { .errno = e, .reason = r }
 
-#define NEXT_TOKEN(parser) RETURN_ON_ERROR(asn1_next(parser))
-#define NEXT_CHILD(parser) \
+#define RETURN_ON_ERROR(expr) \
 	do { \
-		if (asn1_eof(parser)) { \
-			return asn1_pop(parser); \
+		asinine_err_t ret_##__LINE__ = expr; \
+		if (ret_##__LINE__.errno != ASININE_OK) { \
+			return ret_##__LINE__; \
 		} \
-		NEXT_TOKEN(parser); \
 	} while (0)

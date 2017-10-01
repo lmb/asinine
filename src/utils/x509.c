@@ -17,6 +17,8 @@
 
 #include "asinine/dsl.h"
 #include "asinine/x509.h"
+
+#include "internal/macros.h"
 #include "internal/utils.h"
 
 #define OPTPARSE_IMPLEMENTATION
@@ -32,8 +34,8 @@ dump_name(FILE *fd, const x509_name_t *name) {
 		snprintf(buf, sizeof(buf), "%s:", x509_rdn_type_string(rdn->type));
 		fprintf(fd, "  %-20s ", buf);
 
-		asinine_err_t err;
-		if ((err = asn1_string(&rdn->value, buf, sizeof(buf))) != ASININE_OK) {
+		asinine_err_t err = asn1_string(&rdn->value, buf, sizeof(buf));
+		if (err.errno != ASININE_OK) {
 			fprintf(fd, "%s\n", asinine_strerror(err));
 		} else {
 			fprintf(fd, "%s\n", buf);
@@ -106,28 +108,31 @@ validate_rsa_signature(const x509_pubkey_t *pubkey, x509_pubkey_params_t params,
 	mbedtls_rsa_init(&rsa, MBEDTLS_RSA_PKCS_V15, MBEDTLS_MD_NONE);
 	rsa.len = pubkey->key.rsa.n_num;
 
-	asinine_err_t res = ASININE_ERR_MALFORMED;
+	asinine_err_t res;
 	if (mbedtls_mpi_read_binary(
 	        &rsa.N, pubkey->key.rsa.n, pubkey->key.rsa.n_num) != 0) {
+		res = ERROR(ASININE_ERR_MALFORMED, "rsa: invalid public modulus");
 		goto error;
 	}
 
 	if (mbedtls_mpi_read_binary(
 	        &rsa.E, pubkey->key.rsa.e, pubkey->key.rsa.e_num) != 0) {
+		res = ERROR(ASININE_ERR_MALFORMED, "rsa: invalid exponent");
 		goto error;
 	}
 
 	if (mbedtls_rsa_check_pubkey(&rsa) != 0) {
+		res = ERROR(ASININE_ERR_INVALID, "rsa: public key check failed");
 		goto error;
 	}
 
 	if (mbedtls_rsa_pkcs1_verify(&rsa, NULL, NULL, MBEDTLS_RSA_PUBLIC, digest,
 	        0, hash, sig->data) != 0) {
-		res = ASININE_ERR_UNTRUSTED_SIGNATURE;
+		res = ERROR(ASININE_ERR_UNTRUSTED, "rsa: signature not valid");
 		goto error;
 	}
 
-	res = ASININE_OK;
+	res = ERROR(ASININE_OK, NULL);
 error:
 	mbedtls_rsa_free(&rsa);
 	return res;
@@ -142,7 +147,8 @@ validate_ecdsa_signature(const x509_pubkey_t *pubkey,
 	mbedtls_ecp_group_id group_id;
 	switch (params.ecdsa_curve) {
 	case X509_ECDSA_CURVE_INVALID:
-		return ASININE_ERR_INVALID;
+		abort();
+		break;
 	case X509_ECDSA_CURVE_SECP256R1:
 		group_id = MBEDTLS_ECP_DP_SECP256R1;
 		break;
@@ -157,27 +163,30 @@ validate_ecdsa_signature(const x509_pubkey_t *pubkey,
 	mbedtls_ecdsa_context ecdsa;
 	mbedtls_ecdsa_init(&ecdsa);
 
-	asinine_err_t res = ASININE_ERR_MALFORMED;
+	asinine_err_t res;
 	if (mbedtls_ecp_group_load(&ecdsa.grp, group_id) != 0) {
+		res = ERROR(ASININE_ERR_MALFORMED, "ecdsa: invalid group");
 		goto error;
 	}
 
 	if (mbedtls_ecp_point_read_binary(&ecdsa.grp, &ecdsa.Q,
 	        pubkey->key.ecdsa.point, pubkey->key.ecdsa.point_num) != 0) {
+		res = ERROR(ASININE_ERR_MALFORMED, "ecdsa: invalid point");
 		goto error;
 	}
 
 	if (mbedtls_ecp_check_pubkey(&ecdsa.grp, &ecdsa.Q) != 0) {
+		res = ERROR(ASININE_ERR_MALFORMED, "ecdsa: public key check failed");
 		goto error;
 	}
 
 	if (mbedtls_ecdsa_read_signature(
 	        &ecdsa, hash, hash_len, sig->data, sig->num) != 0) {
-		res = ASININE_ERR_UNTRUSTED_SIGNATURE;
+		res = ERROR(ASININE_ERR_UNTRUSTED, "ecdsa: signature not valid");
 		goto error;
 	}
 
-	res = ASININE_OK;
+	res = ERROR(ASININE_OK, NULL);
 error:
 	mbedtls_ecdsa_free(&ecdsa);
 	return res;
@@ -192,7 +201,8 @@ validate_signature(const x509_pubkey_t *pubkey, x509_pubkey_params_t params,
 	mbedtls_md_type_t digest;
 	switch (sig->algorithm) {
 	case X509_SIGNATURE_INVALID:
-		return ASININE_ERR_INVALID_ALGORITHM;
+		abort();
+		break;
 	case X509_SIGNATURE_SHA256_RSA:
 	case X509_SIGNATURE_SHA256_ECDSA:
 	case X509_SIGNATURE_SHA256_DSA:
@@ -209,20 +219,21 @@ validate_signature(const x509_pubkey_t *pubkey, x509_pubkey_params_t params,
 	case X509_SIGNATURE_MD2_RSA:
 	case X509_SIGNATURE_MD5_RSA:
 	case X509_SIGNATURE_SHA1_RSA:
-		return ASININE_ERR_DEPRECATED;
+		return ERROR(ASININE_ERR_DEPRECATED, "signature: uses MD2/MD5/SHA1");
 	}
 
 	uint8_t hash[64]                 = {0};
 	const mbedtls_md_info_t *md_info = mbedtls_md_info_from_type(digest);
 	if (mbedtls_md(md_info, raw, raw_num, hash) != 0) {
-		return ASININE_ERR_MALFORMED;
+		return ERROR(ASININE_ERR_INVALID, "signature: hashing failed");
 	}
 
 	size_t hash_len = (size_t)mbedtls_md_get_size(md_info);
 
 	switch (sig->algorithm) {
 	case X509_SIGNATURE_INVALID:
-		return ASININE_ERR_INVALID;
+		abort();
+		break;
 	case X509_SIGNATURE_SHA256_RSA:
 	case X509_SIGNATURE_SHA384_RSA:
 	case X509_SIGNATURE_SHA512_RSA:
@@ -236,9 +247,10 @@ validate_signature(const x509_pubkey_t *pubkey, x509_pubkey_params_t params,
 	case X509_SIGNATURE_MD2_RSA:
 	case X509_SIGNATURE_MD5_RSA:
 	case X509_SIGNATURE_SHA1_RSA:
-		return ASININE_ERR_DEPRECATED;
+		return ERROR(ASININE_ERR_DEPRECATED, "signature: uses MD2/MD5/SHA1");
 	case X509_SIGNATURE_SHA256_DSA:
-		return ASININE_ERR_UNSUPPORTED_ALGO;
+		return ERROR(
+		    ASININE_ERR_UNSUPPORTED, "signature: DSA is not supported");
 	}
 }
 
@@ -249,19 +261,16 @@ dump_certificates(const uint8_t *contents, size_t length) {
 	asn1_parser_t parser;
 	asn1_init(&parser, contents, length);
 
-	asinine_err_t res = ASININE_OK;
+	asinine_err_t res = ERROR(ASININE_OK, NULL);
 	while (!asn1_end(&parser)) {
 		asinine_err_t err = x509_parse_cert(&parser, &cert);
-		if (err != ASININE_OK) {
+		if (err.errno != ASININE_OK) {
 			fprintf(stderr, "Invalid certificate: %s\n", asinine_strerror(err));
-			if (res == ASININE_OK) {
+			if (res.errno == ASININE_OK) {
 				res = err;
 			}
 
-			err = asn1_abort(&parser);
-			if (err != ASININE_OK) {
-				return err;
-			}
+			RETURN_ON_ERROR(asn1_abort(&parser));
 		} else {
 			dump_certificate(&cert);
 		}
@@ -290,47 +299,33 @@ validate_path(const uint8_t *trust, size_t trust_length,
 	asn1_parser_t parser;
 	asn1_init(&parser, contents, length);
 
-	asinine_err_t err = x509_parse_cert(&parser, &cert);
-	if (err != ASININE_OK) {
-		fprintf(stderr, "Invalid certificate: %s\n", asinine_strerror(err));
-		return ASININE_ERR_INVALID;
-	}
+	RETURN_ON_ERROR(x509_parse_cert(&parser, &cert));
 
-	err = find_issuer(trust, trust_length, &cert, &issuer);
-	if (err != ASININE_OK) {
-		fprintf(stderr, "Can't find issuer: %s\n", asinine_strerror(err));
+	asinine_err_t err = find_issuer(trust, trust_length, &cert, &issuer);
+	if (err.errno != ASININE_OK) {
 		dump_name(stderr, &cert.issuer);
-		return ASININE_ERR_UNTRUSTED_ISSUER;
+		return err;
 	}
 
 	x509_path_init(&path, &issuer, &now, validate_signature, NULL);
 
 	while (!asn1_end(&parser)) {
 		err = x509_path_add(&path, &cert);
-		if (err != ASININE_OK) {
-			fprintf(stderr, "Validation failed: %s\n", asinine_strerror(err));
-			fprintf(stderr, "Failing certificate:\n");
+		if (err.errno != ASININE_OK) {
 			dump_name(stderr, &cert.subject);
 			return err;
 		}
 
-		err = x509_parse_cert(&parser, &cert);
-		if (err != ASININE_OK) {
-			fprintf(stderr, "Invalid certificate: %s\n", asinine_strerror(err));
-			return err;
-		}
+		RETURN_ON_ERROR(x509_parse_cert(&parser, &cert));
 	}
 
 	err = x509_path_end(&path, &cert);
-	if (err != ASININE_OK) {
-		fprintf(stderr, "Validation failed: %s\n", asinine_strerror(err));
-		fprintf(stderr, "Failing certificate:\n");
+	if (err.errno != ASININE_OK) {
 		dump_name(stderr, &cert.subject);
 		return err;
 	}
 
-	printf("Chain is valid\n");
-	return ASININE_OK;
+	return ERROR(ASININE_OK, NULL);
 }
 
 static void
@@ -399,8 +394,23 @@ main(int argc, char *argv[]) {
 			return 1;
 		}
 
-		return (int)validate_path(trust, trust_len, certs, certs_len);
+		asinine_err_t err = validate_path(trust, trust_len, certs, certs_len);
+		if (err.errno == ASININE_OK) {
+			fprintf(stdout, "Certificate is valid\n");
+			return 0;
+		}
+
+		fprintf(stderr, "Validation failed: %s: %s\n", asinine_strerror(err),
+		    err.reason);
+		return (int)err.errno;
 	}
 
-	return (int)dump_certificates(certs, certs_len);
+	asinine_err_t err = dump_certificates(certs, certs_len);
+	if (err.errno == ASININE_OK) {
+		return 0;
+	}
+
+	fprintf(stderr, "Invalid certificate: %s: %s\n", asinine_strerror(err),
+	    err.reason);
+	return (int)err.errno;
 }

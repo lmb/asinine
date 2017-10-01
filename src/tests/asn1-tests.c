@@ -59,16 +59,16 @@ test_asn1_oid_decode_invalid(void) {
 	check_OK(asn1_push(&parser));
 
 	check_OK(asn1_next(&parser));
-	check(asn1_oid(&parser.token, &oid) == ASININE_ERR_MALFORMED);
+	check(asn1_oid(&parser.token, &oid).errno == ASININE_ERR_MALFORMED);
 
 	check_OK(asn1_next(&parser));
-	check(asn1_oid(&parser.token, &oid) == ASININE_ERR_MALFORMED);
+	check(asn1_oid(&parser.token, &oid).errno == ASININE_ERR_MALFORMED);
 
 	check_OK(asn1_next(&parser));
-	check(asn1_oid(&parser.token, &oid) == ASININE_ERR_MALFORMED);
+	check(asn1_oid(&parser.token, &oid).errno == ASININE_ERR_MALFORMED);
 
 	check_OK(asn1_next(&parser));
-	check(asn1_oid(&parser.token, &oid) == ASININE_ERR_MALFORMED);
+	check(asn1_oid(&parser.token, &oid).errno == ASININE_ERR_MALFORMED);
 
 	check_OK(asn1_pop(&parser));
 	check(asn1_eof(&parser));
@@ -153,11 +153,15 @@ test_asn1_bitstring_decode_invalid(void) {
 
 	uint8_t buf[1];
 
-	check(asn1_bitstring(&token2, buf, 0) == ASININE_ERR_MEMORY);
-	check(asn1_bitstring(&token2, buf, sizeof buf) == ASININE_ERR_MALFORMED);
-	check(asn1_bitstring(&token3, buf, sizeof buf) == ASININE_ERR_MALFORMED);
-	check(asn1_bitstring(&token4, buf, sizeof buf) == ASININE_ERR_MALFORMED);
-	check(asn1_bitstring(&token5, buf, sizeof buf) == ASININE_ERR_MALFORMED);
+	check(asn1_bitstring(&token2, buf, 0).errno == ASININE_ERR_MEMORY);
+	check(asn1_bitstring(&token2, buf, sizeof buf).errno ==
+	      ASININE_ERR_MALFORMED);
+	check(asn1_bitstring(&token3, buf, sizeof buf).errno ==
+	      ASININE_ERR_MALFORMED);
+	check(asn1_bitstring(&token4, buf, sizeof buf).errno ==
+	      ASININE_ERR_MALFORMED);
+	check(asn1_bitstring(&token5, buf, sizeof buf).errno ==
+	      ASININE_ERR_MALFORMED);
 
 	return 0;
 }
@@ -394,26 +398,26 @@ test_asn1_parse_invalid(void) {
 	asn1_parser_t parser;
 
 	asn1_init(&parser, invalid1, sizeof(invalid1));
-	check(asn1_next(&parser) == ASININE_ERR_MALFORMED_LENGTH);
+	check(asn1_next(&parser).errno == ASININE_ERR_MALFORMED);
 
 	asn1_init(&parser, invalid2, sizeof(invalid2));
-	check(asn1_next(&parser) == ASININE_ERR_MALFORMED_LENGTH);
+	check(asn1_next(&parser).errno == ASININE_ERR_MALFORMED);
 
 	asn1_init(&parser, invalid3, sizeof(invalid3));
 	check_OK(asn1_next(&parser));
 	check(!asn1_eof(&parser));
 
 	asn1_init(&parser, invalid4, sizeof(invalid4));
-	check(asn1_next(&parser) == ASININE_ERR_MALFORMED_LENGTH);
+	check(asn1_next(&parser).errno == ASININE_ERR_MALFORMED);
 
 	asn1_init(&parser, invalid5, sizeof(invalid5));
-	check(asn1_next(&parser) == ASININE_ERR_UNSUPPORTED_LENGTH);
+	check(asn1_next(&parser).errno == ASININE_ERR_UNSUPPORTED);
 
 	asn1_init(&parser, invalid6, sizeof(invalid6));
-	check(asn1_next(&parser) == ASININE_ERR_MALFORMED_LENGTH);
+	check(asn1_next(&parser).errno == ASININE_ERR_MALFORMED);
 
 	asn1_init(&parser, truncated, sizeof(truncated));
-	check(asn1_next(&parser) == ASININE_ERR_MALFORMED);
+	check(asn1_next(&parser).errno == ASININE_ERR_MALFORMED);
 
 	// A token of max length overflowed the pointer bounds check
 	max_length[1] = (uint8_t)sizeof parser.token.length;
@@ -423,7 +427,7 @@ test_asn1_parse_invalid(void) {
 	max_length[1] |= 0x80;
 
 	asn1_init(&parser, max_length, sizeof(max_length));
-	check(asn1_next(&parser) == ASININE_ERR_MALFORMED_LENGTH);
+	check(asn1_next(&parser).errno == ASININE_ERR_MALFORMED);
 
 	return 0;
 }
@@ -496,12 +500,12 @@ test_asn1_parse_invalid_time(void) {
 
 	asn1_time_t time;
 
-	check(asn1_time(&garbage_token, &time) == ASININE_ERR_MALFORMED);
-	check(asn1_time(&incomplete_token, &time) == ASININE_ERR_MALFORMED);
-	check(asn1_time(&missing_tz_token, &time) == ASININE_ERR_MALFORMED);
-	check(asn1_time(&midnight_token, &time) == ASININE_ERR_MALFORMED);
-	check(asn1_time(&leap_year_token, &time) == ASININE_ERR_MALFORMED);
-	check(asn1_time(&days_token, &time) == ASININE_ERR_MALFORMED);
+	check(asn1_time(&garbage_token, &time).errno == ASININE_ERR_MALFORMED);
+	check(asn1_time(&incomplete_token, &time).errno == ASININE_ERR_MALFORMED);
+	check(asn1_time(&missing_tz_token, &time).errno == ASININE_ERR_MALFORMED);
+	check(asn1_time(&midnight_token, &time).errno == ASININE_ERR_MALFORMED);
+	check(asn1_time(&leap_year_token, &time).errno == ASININE_ERR_MALFORMED);
+	check(asn1_time(&days_token, &time).errno == ASININE_ERR_MALFORMED);
 
 	return 0;
 }
@@ -516,8 +520,8 @@ test_asn1_parse_invalid_int(void) {
 	const asn1_token_t leading_zeroes_token =
 	    TOKEN(ASN1_TAG_INT, leading_zeroes_raw, ASN1_ENCODING_PRIMITIVE);
 
-	check(asn1_int(&leading_ones_token, NULL) == ASININE_ERR_MALFORMED);
-	check(asn1_int(&leading_zeroes_token, NULL) == ASININE_ERR_MALFORMED);
+	check(asn1_int(&leading_ones_token, NULL).errno == ASININE_ERR_MALFORMED);
+	check(asn1_int(&leading_zeroes_token, NULL).errno == ASININE_ERR_MALFORMED);
 
 	return 0;
 }

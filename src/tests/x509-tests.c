@@ -28,8 +28,9 @@ test_x509_certs(void) {
 
 		x509_cert_t cert;
 		asinine_err_t err = x509_parse_cert(&parser, &cert);
-		if (err != ASININE_OK) {
-			printf("> %s: %s\n", certs[i], asinine_strerror(err));
+		if (err.errno != ASININE_OK) {
+			printf(
+			    "> %s: %s: %s\n", certs[i], asinine_strerror(err), err.reason);
 			errors = true;
 		}
 

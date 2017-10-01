@@ -7,6 +7,7 @@
 #include <string.h>
 
 #include "asinine/asn1.h"
+#include "asinine/errors.h"
 #include "internal/macros.h"
 
 #define SECONDS_PER_YEAR (31536000)
@@ -19,13 +20,13 @@
 #define MIN_TIME_LENGTH (6 * 2 + 1)
 #define MAX_TIME_LENGTH (7 * 2 + 1)
 
-static bool
+static asinine_err_t
 validate_string(const asn1_token_t *token) {
 	const uint8_t *data;
 	const uint8_t *const data_end = token->data + token->length;
 
-	if (token == NULL || token->type.class != ASN1_CLASS_UNIVERSAL) {
-		return false;
+	if (token->type.class != ASN1_CLASS_UNIVERSAL) {
+		return ERROR(ASININE_ERR_MALFORMED, "string: not of class universal");
 	}
 
 	switch (token->type.tag) {
@@ -38,13 +39,15 @@ validate_string(const asn1_token_t *token) {
 
 			// ' and z
 			if (*data < 0x27 || *data > 0x7a) {
-				return false;
+				return ERROR(
+				    ASININE_ERR_MALFORMED, "string: invalid character");
 			}
 
 			// Illegal characters: *, ;, <, >, @
 			if (*data == 0x2a || *data == 0x3b || *data == 0x3c ||
 			    *data == 0x3e || *data == 0x40) {
-				return false;
+				return ERROR(
+				    ASININE_ERR_MALFORMED, "string: invalid character");
 			}
 		}
 		break;
@@ -61,7 +64,8 @@ validate_string(const asn1_token_t *token) {
 			 * (ASCII), and flag switching as an error.
 			 */
 			if (*data < 0x20 || *data > 0x7f) {
-				return false;
+				return ERROR(
+				    ASININE_ERR_MALFORMED, "string: invalid character");
 			}
 		}
 		break;
@@ -89,45 +93,44 @@ validate_string(const asn1_token_t *token) {
 				} else {
 					// 0x80 - 0xBF: Continuation bytes
 					// 0xC0 - 0xC1: Invalid code points
-					return false;
+					return ERROR(ASININE_ERR_MALFORMED,
+					    "utf8string: invalid leading character");
 				}
 
 				state = CONTINUATION;
 				break;
 
 			case CONTINUATION:
-				if (0x80 <= byte && byte < 0xC0) {
-					bytes -= 1;
-
-					if (bytes == 0) {
-						state = LEADING;
-					}
-
-					continue;
+				if (byte < 0x80 || byte >= 0xC0) {
+					return ERROR(ASININE_ERR_MALFORMED,
+					    "utf8string: invalid continuation");
 				}
 
-				return false;
+				bytes -= 1;
+				if (bytes == 0) {
+					state = LEADING;
+				}
+
+				break;
 			}
 		}
 		break;
 	}
 
 	default:
-		return false;
+		return ERROR(ASININE_ERR_INVALID, "string: unknown tag");
 	}
 
-	return true;
+	return ERROR(ASININE_OK, NULL);
 }
 
 // 8.23
 asinine_err_t
-asn1_string(const asn1_token_t *token, char *buf, size_t num) {
-	if (!validate_string(token)) {
-		return ASININE_ERR_MALFORMED;
-	}
+asn1_string(const asn1_token_t *token, char *buf, size_t len) {
+	RETURN_ON_ERROR(validate_string(token));
 
-	if (num <= token->length) {
-		return ASININE_ERR_MEMORY;
+	if (len <= token->length) {
+		return ERROR(ASININE_ERR_MEMORY, "string: buffer too small");
 	}
 
 	memcpy(buf, token->data, token->length);
@@ -136,15 +139,15 @@ asn1_string(const asn1_token_t *token, char *buf, size_t num) {
 	// We disallow NULLs in all strings, since the potential for abuse is too
 	// high. This is a deviation from spec, obviously.
 	if (strlen(buf) != token->length) {
-		return ASININE_ERR_INVALID;
+		return ERROR(ASININE_ERR_INVALID, "string: contains NUL");
 	}
 
-	return ASININE_OK;
+	return ERROR(ASININE_OK, NULL);
 }
 
 bool
 asn1_string_eq(const asn1_token_t *token, const char *str) {
-	if (!validate_string(token)) {
+	if (validate_string(token).errno != ASININE_OK) {
 		return false;
 	}
 
@@ -173,7 +176,7 @@ asn1_time_cmp(const asn1_time_t *a, const asn1_time_t *b) {
 
 // 8.6
 asinine_err_t
-asn1_bitstring(const asn1_token_t *token, uint8_t *buf, const size_t num) {
+asn1_bitstring(const asn1_token_t *token, uint8_t *buf, const size_t len) {
 	// Thank you http://stackoverflow.com/a/2603254
 	static const uint8_t lookup[16] = {0x0, 0x8, 0x4, 0xC, 0x2, 0xA, 0x6, 0xE,
 	    0x1, 0x9, 0x5, 0xD, 0x3, 0xB, 0x7, 0xF};
@@ -184,30 +187,35 @@ asn1_bitstring(const asn1_token_t *token, uint8_t *buf, const size_t num) {
 	 */
 
 	// 8.6.2.2
-	if (token->length < 1) {
-		return ASININE_ERR_MALFORMED;
+	if (token->length == 0) {
+		return ERROR(ASININE_ERR_MALFORMED, "bitstring: zero length");
 	}
 
-	if (buf != NULL && token->length - 1 > num) {
-		return ASININE_ERR_MEMORY;
+	if (buf != NULL && token->length - 1 > len) {
+		return ERROR(ASININE_ERR_MEMORY, "bitstring: buffer too small");
 	}
 
-	memset(buf, 0, num);
+	memset(buf, 0, len);
 
 	// 8.6.2.2
 	uint8_t unused_bits = token->data[0];
 	if (unused_bits > 7) {
-		return ASININE_ERR_MALFORMED;
+		return ERROR(ASININE_ERR_MALFORMED, "bitstring: too many unused bits");
 	}
 
 	// 8.6.2.3
 	if (token->length == 1) {
-		return (unused_bits == 0) ? ASININE_OK : ASININE_ERR_MALFORMED;
+		if (unused_bits != 0) {
+			return ERROR(
+			    ASININE_ERR_MALFORMED, "bitstring: invalid zero value");
+		}
+
+		return ERROR(ASININE_OK, NULL);
 	}
 
 	// 11.2.2
 	if (token->data[token->length - 1] == 0) {
-		return ASININE_ERR_MALFORMED;
+		return ERROR(ASININE_ERR_MALFORMED, "bitstring: invalid padding");
 	}
 
 	// 11.2.1
@@ -215,17 +223,18 @@ asn1_bitstring(const asn1_token_t *token, uint8_t *buf, const size_t num) {
 		unused_bits = (uint8_t)((1 << unused_bits) - 1);
 
 		if ((token->data[token->length - 1] & unused_bits) != 0) {
-			return ASININE_ERR_MALFORMED;
+			return ERROR(
+			    ASININE_ERR_MALFORMED, "bistring: unused bits are set");
 		}
 	}
 
-	for (size_t i = 1, j = 0; i < token->length && j < num; i++, j++) {
+	for (size_t i = 1, j = 0; i < token->length && j < len; i++, j++) {
 		const uint8_t data = token->data[i];
 
 		buf[j] = (uint8_t)(lookup[data & 0xf] << 4) | lookup[data >> 4];
 	}
 
-	return ASININE_OK;
+	return ERROR(ASININE_OK, NULL);
 }
 
 // 8.3
@@ -234,24 +243,24 @@ asn1_int(const asn1_token_t *token, asn1_word_t *value) {
 	const uint8_t *data = token->data;
 
 	if (token->length == 0) {
-		return ASININE_ERR_INVALID;
+		return ERROR(ASININE_ERR_INVALID, "int: zero length");
 	}
 
 	if (token->length > 1) {
 		// 8.3.2
-		int leading = ((data[0] << 8) | data[1]) >> 7;
+		int leading = (data[0] << 1u) | (data[1] >> 7u);
 
-		if (leading == 0 || leading == (1 << 9) - 1) {
-			return ASININE_ERR_MALFORMED;
+		if (leading == 0 || leading == 0x1ff) {
+			return ERROR(ASININE_ERR_MALFORMED, "int: not smallest encoding");
 		}
 	}
 
 	if (value == NULL) {
-		return ASININE_OK;
+		return ERROR(ASININE_OK, NULL);
 	}
 
 	if (token->length > sizeof *value) {
-		return ASININE_ERR_MEMORY;
+		return ERROR(ASININE_ERR_MEMORY, "int: too large");
 	}
 
 	asn1_word_t interim = 0;
@@ -264,31 +273,27 @@ asn1_int(const asn1_token_t *token, asn1_word_t *value) {
 	asn1_word_t mask = 1 << ((token->length * 8) - 1);
 	*value           = (interim ^ mask) - mask;
 
-	return ASININE_OK;
+	return ERROR(ASININE_OK, NULL);
 }
 
 asinine_err_t
 asn1_uint_buf(const asn1_token_t *token, const uint8_t **buf, size_t *num) {
-	asinine_err_t err = asn1_int(token, NULL);
-	if (err != ASININE_OK) {
-		return err;
-	}
+	RETURN_ON_ERROR(asn1_int(token, NULL));
 
 	if ((token->data[0] & 0x80) != 0) {
-		// This is a signed integer
-		return ASININE_ERR_INVALID;
+		return ERROR(ASININE_ERR_INVALID, "uint: signed integer");
 	}
 
 	if (token->data[0] == 0) {
 		// Remove padding
 		*buf = token->data + 1;
 		*num = token->length - 1;
-		return ASININE_OK;
+		return ERROR(ASININE_OK, NULL);
 	}
 
 	*buf = token->data;
 	*num = token->length;
-	return ASININE_OK;
+	return ERROR(ASININE_OK, NULL);
 }
 
 static inline bool
@@ -321,14 +326,14 @@ asn1_time(const asn1_token_t *token, asn1_time_t *time) {
 	const char *data = (char *)token->data;
 
 	if (token->length < MIN_TIME_LENGTH || token->length > MAX_TIME_LENGTH) {
-		return ASININE_ERR_MALFORMED;
+		return ERROR(ASININE_ERR_MALFORMED, "time: wrong length");
 	}
 
 	// (YY)YYMMDDHHMMSS(Z|+-D)
 	uint8_t pairs[7];
 	for (size_t i = 0; i < token->length / 2; data += 2, i++) {
 		if (!decode_pair(data, &pairs[i])) {
-			return ASININE_ERR_MALFORMED;
+			return ERROR(ASININE_ERR_MALFORMED, "time: invalid pair");
 		}
 	}
 
@@ -338,7 +343,7 @@ asn1_time(const asn1_token_t *token, asn1_time_t *time) {
 	// - use '.' as a fractional delimiter
 
 	if (*data != 'Z') {
-		return ASININE_ERR_MALFORMED;
+		return ERROR(ASININE_ERR_MALFORMED, "time: not in UTC");
 	}
 
 	size_t i = 0;
@@ -349,7 +354,7 @@ asn1_time(const asn1_token_t *token, asn1_time_t *time) {
 
 		// Years are from (19)50 to (20)49, so 99 is 1999 and 00 is 2000.
 		if (time->year > 99) {
-			return ASININE_ERR_MALFORMED;
+			return ERROR(ASININE_ERR_MALFORMED, "time: invalid year");
 		}
 
 		// Normalize years, since the encoding is not linear:
@@ -365,7 +370,7 @@ asn1_time(const asn1_token_t *token, asn1_time_t *time) {
 		break;
 
 	default:
-		return ASININE_ERR_MALFORMED;
+		return ERROR(ASININE_ERR_MALFORMED, "time: unknown tag");
 	}
 
 	time->month  = pairs[i++];
@@ -376,28 +381,28 @@ asn1_time(const asn1_token_t *token, asn1_time_t *time) {
 
 	// Validation
 	if (time->month < 1 || time->month > 12) {
-		return ASININE_ERR_MALFORMED;
+		return ERROR(ASININE_ERR_MALFORMED, "time: invalid month");
 	}
 
 	if (time->day < 1) {
-		return ASININE_ERR_MALFORMED;
+		return ERROR(ASININE_ERR_MALFORMED, "time: invalid day");
 	} else if (is_leap_year(time->year) && time->month == 2) {
 		if (time->day > 29) {
-			return ASININE_ERR_MALFORMED;
+			return ERROR(ASININE_ERR_MALFORMED, "time: invalid day");
 		}
 	} else if (time->day > days_per_month[time->month - 1]) {
-		return ASININE_ERR_MALFORMED;
+		return ERROR(ASININE_ERR_MALFORMED, "time: invalid day");
 	}
 
 	if (time->hour > 23) {
-		return ASININE_ERR_MALFORMED;
+		return ERROR(ASININE_ERR_MALFORMED, "time: invalid hour");
 	}
 
 	if (time->second > 59) {
-		return ASININE_ERR_MALFORMED;
+		return ERROR(ASININE_ERR_MALFORMED, "time: invalid second");
 	}
 
-	return ASININE_OK;
+	return ERROR(ASININE_OK, NULL);
 }
 
 asinine_err_t
@@ -405,7 +410,7 @@ asn1_bool(const asn1_token_t *token, bool *value) {
 	uint8_t data;
 
 	if (token->length != 1) {
-		return ASININE_ERR_MALFORMED;
+		return ERROR(ASININE_ERR_MALFORMED, "bool: wrong length");
 	}
 
 	data = *token->data;
@@ -415,15 +420,19 @@ asn1_bool(const asn1_token_t *token, bool *value) {
 	} else if (data == 0xFF) {
 		*value = true;
 	} else {
-		return ASININE_ERR_MALFORMED;
+		return ERROR(ASININE_ERR_MALFORMED, "bool: invalid value");
 	}
 
-	return ASININE_OK;
+	return ERROR(ASININE_OK, NULL);
 }
 
 asinine_err_t
 asn1_null(const asn1_token_t *token) {
-	return (token->length == 0) ? ASININE_OK : ASININE_ERR_MALFORMED;
+	if (token->length != 0) {
+		return ERROR(ASININE_ERR_MALFORMED, "null: length isn't zero");
+	}
+
+	return ERROR(ASININE_OK, NULL);
 }
 
 const char *
@@ -431,33 +440,19 @@ asinine_strerror(asinine_err_t err) {
 #define case_for_tag(x) \
 	case x: \
 		return #x
-	switch (err) {
+	switch (err.errno) {
 		case_for_tag(ASININE_OK);
 		case_for_tag(ASININE_ERR_MALFORMED);
-		case_for_tag(ASININE_ERR_MALFORMED_LENGTH);
-		case_for_tag(ASININE_ERR_MALFORMED_TAG);
 		case_for_tag(ASININE_ERR_MEMORY);
 		case_for_tag(ASININE_ERR_UNSUPPORTED);
-		case_for_tag(ASININE_ERR_UNSUPPORTED_ALGO);
-		case_for_tag(ASININE_ERR_UNSUPPORTED_EXTN);
-		case_for_tag(ASININE_ERR_UNSUPPORTED_LENGTH);
-		case_for_tag(ASININE_ERR_UNSUPPORTED_NESTING);
-		case_for_tag(ASININE_ERR_UNSUPPORTED_NAME);
-		case_for_tag(ASININE_ERR_UNSUPPORTED_CONSTRAINT);
 		case_for_tag(ASININE_ERR_INVALID);
-		case_for_tag(ASININE_ERR_INVALID_EXPIRED);
-		case_for_tag(ASININE_ERR_INVALID_ALGORITHM);
-		case_for_tag(ASININE_ERR_INVALID_ISSUER);
-		case_for_tag(ASININE_ERR_INVALID_VERSION);
-		case_for_tag(ASININE_ERR_INVALID_NOT_CA);
-		case_for_tag(ASININE_ERR_INVALID_PATH_LEN);
-		case_for_tag(ASININE_ERR_INVALID_KEYUSE);
-		case_for_tag(ASININE_ERR_UNTRUSTED_ISSUER);
-		case_for_tag(ASININE_ERR_UNTRUSTED_SIGNATURE);
+		case_for_tag(ASININE_ERR_EXPIRED);
+		case_for_tag(ASININE_ERR_UNTRUSTED);
 		case_for_tag(ASININE_ERR_DEPRECATED);
 		case_for_tag(ASININE_ERR_NOT_FOUND);
 	}
 #undef case_for_tag
+	return "(INVALID)";
 }
 
 static const char *
@@ -466,13 +461,14 @@ class_to_string(asn1_class_t class) {
 #define case_for(x) \
 	case x: \
 		return #x
-	switch ((asn1_class_t) class) {
+	switch (class) {
 		case_for(ASN1_CLASS_UNIVERSAL);
 		case_for(ASN1_CLASS_APPLICATION);
 		case_for(ASN1_CLASS_CONTEXT);
 		case_for(ASN1_CLASS_PRIVATE);
 	}
 #undef case_for
+	return "(INVALID)";
 }
 
 static const char *
@@ -499,6 +495,7 @@ tag_to_string(asn1_tag_t tag) {
 		case_for(ASN1_TAG_VISIBLESTRING);
 	}
 #undef case_for
+	return "(INVALID)";
 }
 
 size_t

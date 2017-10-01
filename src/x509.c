@@ -135,13 +135,13 @@ x509_parse_cert(asn1_parser_t *parser, x509_cert_t *cert) {
 
 		NEXT_TOKEN(parser);
 		if (!asn1_is_int(token)) {
-			return ASININE_ERR_INVALID;
+			return ERROR(ASININE_ERR_INVALID, NULL);
 		}
 
 		RETURN_ON_ERROR(asn1_int(token, &version));
 
 		if (version != X509_V2 && version != X509_V3) {
-			return ASININE_ERR_INVALID;
+			return ERROR(ASININE_ERR_INVALID, "cert: unknown version");
 		}
 
 		cert->version = (x509_version_t)version;
@@ -155,7 +155,7 @@ x509_parse_cert(asn1_parser_t *parser, x509_cert_t *cert) {
 	// serialNumber
 	// TODO: As per X.509 guide, this should be treated as a binary blob
 	if (!asn1_is_int(token)) {
-		return ASININE_ERR_INVALID;
+		return ERROR(ASININE_ERR_INVALID, NULL);
 	}
 
 	// signature
@@ -184,32 +184,35 @@ x509_parse_cert(asn1_parser_t *parser, x509_cert_t *cert) {
 	NEXT_TOKEN(parser);
 
 	if (!asn1_eq(token, &signature)) {
-		return ASININE_ERR_INVALID;
+		return ERROR(
+		    ASININE_ERR_INVALID, "cert: signature algorithm doesn't match");
 	}
 
 	// signature
 	NEXT_TOKEN(parser);
 	if (!asn1_is_bitstring(token)) {
-		return ASININE_ERR_INVALID;
+		return ERROR(ASININE_ERR_INVALID, NULL);
 	}
 
 	// The signature value claims it's a bitstring, but really is
 	// a bag of bytes. Contrary to the spec it can end in a zero byte,
 	// which breaks when validated as a real bitstring.
 	if (token->length < 1 || token->data[0] != 0) {
-		return ASININE_ERR_MALFORMED;
+		return ERROR(
+		    ASININE_ERR_MALFORMED, "cert: signature has invalid prefix");
 	}
 	cert->signature.data = token->data + 1;
 	cert->signature.num  = token->length - 1;
 
 	// RFC5280 4.1.2.6.
 	if (cert->is_ca && cert->subject.num == 0) {
-		return ASININE_ERR_INVALID;
+		return ERROR(ASININE_ERR_INVALID, "cert: missing subject name (as CA)");
 	}
 
 	if ((cert->key_usage & X509_KEYUSE_CRL_SIGN) != 0 &&
 	    cert->subject.num == 0) {
-		return ASININE_ERR_INVALID;
+		return ERROR(
+		    ASININE_ERR_INVALID, "cert: missing subject name (to sign)");
 	}
 
 	return asn1_pop(parser);
@@ -237,11 +240,12 @@ parse_optional(asn1_parser_t *parser, x509_cert_t *cert) {
 		// extensions
 		if (cert->version != X509_V3) {
 			// We should not be here if this is not a V3 cert
-			return ASININE_ERR_INVALID;
+			return ERROR(
+			    ASININE_ERR_INVALID, "cert: extensions should not be present");
 		}
 
 		if (!asn1_is(token, ASN1_CLASS_CONTEXT, 3, ASN1_ENCODING_CONSTRUCTED)) {
-			return ASININE_ERR_INVALID;
+			return ERROR(ASININE_ERR_INVALID, NULL);
 		}
 
 		RETURN_ON_ERROR(asn1_push(parser));
@@ -249,7 +253,7 @@ parse_optional(asn1_parser_t *parser, x509_cert_t *cert) {
 		RETURN_ON_ERROR(asn1_pop(parser));
 	}
 
-	return !asn1_eof(parser) ? ASININE_ERR_INVALID : ASININE_OK;
+	return ERROR(ASININE_OK, NULL);
 }
 
 static delegate_parser_t
@@ -278,7 +282,7 @@ parse_extensions(asn1_parser_t *parser, x509_cert_t *cert) {
 		NEXT_TOKEN(parser);
 
 		if (!asn1_is_oid(token)) {
-			return ASININE_ERR_INVALID;
+			return ERROR(ASININE_ERR_INVALID, NULL);
 		}
 
 		asn1_oid_t id;
@@ -295,7 +299,7 @@ parse_extensions(asn1_parser_t *parser, x509_cert_t *cert) {
 
 		// extnValue
 		if (!asn1_is_octetstring(token)) {
-			return ASININE_ERR_INVALID;
+			return ERROR(ASININE_ERR_INVALID, NULL);
 		}
 
 		delegate_parser_t extn_parser = find_extension_parser(&id);
@@ -304,9 +308,7 @@ parse_extensions(asn1_parser_t *parser, x509_cert_t *cert) {
 			RETURN_ON_ERROR(extn_parser(parser, cert));
 			RETURN_ON_ERROR(asn1_pop(parser));
 		} else if (critical) {
-			char buf[256];
-			asn1_oid_to_string(buf, sizeof(buf), &id);
-			return ASININE_ERR_UNSUPPORTED_EXTN;
+			return ERROR(ASININE_ERR_UNSUPPORTED, "unknown critical extension");
 		}
 
 		RETURN_ON_ERROR(asn1_pop(parser));
@@ -338,7 +340,7 @@ parse_signature_info(
 	NEXT_TOKEN(parser);
 
 	if (!asn1_is_oid(token)) {
-		return ASININE_ERR_INVALID;
+		return ERROR(ASININE_ERR_INVALID, NULL);
 	}
 
 	asn1_oid_t oid;
@@ -346,7 +348,7 @@ parse_signature_info(
 
 	const signature_lookup_t *result = find_signature_algorithm(&oid);
 	if (result == NULL) {
-		return ASININE_ERR_UNSUPPORTED_ALGO;
+		return ERROR(ASININE_ERR_UNSUPPORTED, "signature: unknown algorithm");
 	}
 
 	cert->signature.algorithm = result->algorithm;
@@ -366,14 +368,14 @@ parse_validity(asn1_parser_t *parser, x509_cert_t *cert) {
 	// Valid from
 	NEXT_TOKEN(parser);
 	if (!asn1_is_time(token)) {
-		return ASININE_ERR_INVALID;
+		return ERROR(ASININE_ERR_INVALID, NULL);
 	}
 	RETURN_ON_ERROR(asn1_time(token, &cert->valid_from));
 
 	// Valid to
 	NEXT_TOKEN(parser);
 	if (!asn1_is_time(token)) {
-		return ASININE_ERR_INVALID;
+		return ERROR(ASININE_ERR_INVALID, NULL);
 	}
 	RETURN_ON_ERROR(asn1_time(token, &cert->valid_to));
 
@@ -393,13 +395,13 @@ _x509_parse_null_or_empty_args(asn1_parser_t *parser) {
 	// There is at least one implementation which skips the null.
 	// This deviates from the spec.
 	if (asn1_eof(parser)) {
-		return ASININE_OK;
+		return ERROR(ASININE_OK, NULL);
 	}
 
 	NEXT_TOKEN(parser);
 
 	if (!asn1_is_null(token)) {
-		return ASININE_ERR_INVALID;
+		return ERROR(ASININE_ERR_INVALID, NULL);
 	}
 
 	return asn1_null(token);
@@ -409,7 +411,11 @@ static asinine_err_t
 parse_empty_args(asn1_parser_t *parser, x509_cert_t *cert) {
 	(void)cert;
 
-	return asn1_eof(parser) ? ASININE_OK : ASININE_ERR_MALFORMED;
+	if (!asn1_eof(parser)) {
+		return ERROR(ASININE_ERR_MALFORMED, "algorithm: non-empty args");
+	}
+
+	return ERROR(ASININE_OK, NULL);
 }
 
 static asinine_err_t
@@ -417,7 +423,7 @@ parse_extn_key_usage(asn1_parser_t *parser, x509_cert_t *cert) {
 	NEXT_TOKEN(parser);
 
 	if (!asn1_is_bitstring(&parser->token)) {
-		return ASININE_ERR_INVALID;
+		return ERROR(ASININE_ERR_INVALID, NULL);
 	}
 
 	uint8_t buf[2];
@@ -428,14 +434,18 @@ parse_extn_key_usage(asn1_parser_t *parser, x509_cert_t *cert) {
 	// RFC 3279 2.3.1. to 2.3.5.
 	if ((cert->key_usage & X509_KEYUSE_DECIPHER_ONLY) != 0 &&
 	    (cert->key_usage & X509_KEYUSE_ENCIPHER_ONLY) != 0) {
-		return ASININE_ERR_INVALID;
+		return ERROR(ASININE_ERR_INVALID,
+		    "key usage: both decipher only and encipher only asserted");
 	}
 
 	/* RFC 5280, p.30: "When the keyUsage extension appears in a certificate, at
 	 * least one of the bits MUST be set to 1."
 	 */
-	return (asn1_eof(parser) && cert->key_usage != 0) ? ASININE_OK
-	                                                  : ASININE_ERR_INVALID;
+	if (cert->key_usage == 0) {
+		return ERROR(ASININE_ERR_INVALID, "key usage: no usage asserted");
+	}
+
+	return ERROR(ASININE_OK, NULL);
 }
 
 static asinine_err_t
@@ -450,7 +460,7 @@ parse_extn_ext_key_usage(asn1_parser_t *parser, x509_cert_t *cert) {
 		NEXT_TOKEN(parser);
 
 		if (!asn1_is_oid(&parser->token)) {
-			return ASININE_ERR_INVALID;
+			return ERROR(ASININE_ERR_INVALID, NULL);
 		}
 
 		RETURN_ON_ERROR(asn1_oid(&parser->token, &oid));
@@ -497,11 +507,13 @@ parse_extn_basic_constraints(asn1_parser_t *parser, x509_cert_t *cert) {
 	RETURN_ON_ERROR(asn1_int(&parser->token, &value));
 
 	if (value < 0) {
-		return ASININE_ERR_INVALID;
+		return ERROR(
+		    ASININE_ERR_INVALID, "basic constraints: negative path length");
 	}
 
 	if (value > INT8_MAX) {
-		return ASININE_ERR_UNSUPPORTED_CONSTRAINT;
+		return ERROR(
+		    ASININE_ERR_UNSUPPORTED, "basic constraints: path length too high");
 	}
 
 	cert->path_len_constraint = (int8_t)value;
