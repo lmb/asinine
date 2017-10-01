@@ -12,18 +12,18 @@ endif
 
 ifeq ($(config),debug)
   asinine_config = debug
-  dump_config = debug
+  asn1_config = debug
   x509_config = debug
   tests_config = debug
 endif
 ifeq ($(config),release)
   asinine_config = release
-  dump_config = release
+  asn1_config = release
   x509_config = release
   tests_config = release
 endif
 
-PROJECTS := asinine dump x509 tests
+PROJECTS := asinine asn1 x509 tests
 
 .PHONY: all clean help $(PROJECTS) 
 
@@ -35,10 +35,10 @@ ifneq (,$(asinine_config))
 	@${MAKE} --no-print-directory -C . -f asinine.make config=$(asinine_config)
 endif
 
-dump: asinine
-ifneq (,$(dump_config))
-	@echo "==== Building dump ($(dump_config)) ===="
-	@${MAKE} --no-print-directory -C . -f dump.make config=$(dump_config)
+asn1: asinine
+ifneq (,$(asn1_config))
+	@echo "==== Building asn1 ($(asn1_config)) ===="
+	@${MAKE} --no-print-directory -C . -f asn1.make config=$(asn1_config)
 endif
 
 x509: asinine
@@ -55,7 +55,7 @@ endif
 
 clean:
 	@${MAKE} --no-print-directory -C . -f asinine.make clean
-	@${MAKE} --no-print-directory -C . -f dump.make clean
+	@${MAKE} --no-print-directory -C . -f asn1.make clean
 	@${MAKE} --no-print-directory -C . -f x509.make clean
 	@${MAKE} --no-print-directory -C . -f tests.make clean
 
@@ -70,7 +70,7 @@ help:
 	@echo "   all (default)"
 	@echo "   clean"
 	@echo "   asinine"
-	@echo "   dump"
+	@echo "   asn1"
 	@echo "   x509"
 	@echo "   tests"
 	@echo ""

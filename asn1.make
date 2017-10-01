@@ -13,8 +13,8 @@ endif
 ifeq ($(config),debug)
   RESCOMP = windres
   TARGETDIR = bin/Debug
-  TARGET = $(TARGETDIR)/dump
-  OBJDIR = obj/Debug/dump
+  TARGET = $(TARGETDIR)/asn1
+  OBJDIR = obj/Debug/asn1
   DEFINES += -DDEBUG
   INCLUDES += -Iinclude
   FORCE_INCLUDE +=
@@ -40,8 +40,8 @@ endif
 ifeq ($(config),release)
   RESCOMP = windres
   TARGETDIR = bin/Release
-  TARGET = $(TARGETDIR)/dump
-  OBJDIR = obj/Release/dump
+  TARGET = $(TARGETDIR)/asn1
+  OBJDIR = obj/Release/asn1
   DEFINES += -DNDEBUG
   INCLUDES += -Iinclude
   FORCE_INCLUDE +=
@@ -65,7 +65,7 @@ all: $(TARGETDIR) $(OBJDIR) prebuild prelink $(TARGET)
 endif
 
 OBJECTS := \
-	$(OBJDIR)/dump.o \
+	$(OBJDIR)/asn1.o \
 	$(OBJDIR)/hex.o \
 	$(OBJDIR)/load.o \
 
@@ -82,7 +82,7 @@ ifeq (/bin,$(findstring /bin,$(SHELL)))
 endif
 
 $(TARGET): $(GCH) ${CUSTOMFILES} $(OBJECTS) $(LDDEPS) $(RESOURCES)
-	@echo Linking dump
+	@echo Linking asn1
 	$(SILENT) $(LINKCMD)
 	$(POSTBUILDCMDS)
 
@@ -103,7 +103,7 @@ else
 endif
 
 clean:
-	@echo Cleaning dump
+	@echo Cleaning asn1
 ifeq (posix,$(SHELLTYPE))
 	$(SILENT) rm -f  $(TARGET)
 	$(SILENT) rm -rf $(OBJDIR)
@@ -125,7 +125,7 @@ $(GCH): $(PCH)
 	$(SILENT) $(CC) -x c-header $(ALL_CFLAGS) -o "$@" -MF "$(@:%.gch=%.d)" -c "$<"
 endif
 
-$(OBJDIR)/dump.o: src/utils/dump.c
+$(OBJDIR)/asn1.o: src/utils/asn1.c
 	@echo $(notdir $<)
 	$(SILENT) $(CC) $(ALL_CFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
 $(OBJDIR)/hex.o: src/utils/hex.c

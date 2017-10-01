@@ -32,12 +32,12 @@ workspace "Asinine"
 
 		files { "include/asinine/*.h", "include/internal/*.h", "src/*.c" }
 
-	project "dump"
+	project "asn1"
 		kind "ConsoleApp"
 		language "C"
 		links { "asinine" }
 
-		files { "src/utils/dump.c", "src/utils/hex.c", "src/utils/load.c" }
+		files { "src/utils/asn1.c", "src/utils/hex.c", "src/utils/load.c" }
 
 	project "x509"
 		kind "ConsoleApp"
