@@ -164,10 +164,6 @@ x509_path_add(x509_path_t *path, const x509_cert_t *cert) {
 	// TODO: Process any other critical extensions
 	// TODO: Process any other non-critical extensions
 
-	if (cert->deprecated) {
-		return ERROR(ASININE_ERR_DEPRECATED, NULL);
-	}
-
 	return ERROR(ASININE_OK, NULL);
 }
 
@@ -200,10 +196,6 @@ x509_path_end(x509_path_t *path, const x509_cert_t *cert) {
 
 	// 6.1.5. (g)
 	// valid_policy_tree is not supported
-
-	if (cert->deprecated) {
-		return ERROR(ASININE_ERR_DEPRECATED, NULL);
-	}
 
 	return ERROR(ASININE_OK, NULL);
 }

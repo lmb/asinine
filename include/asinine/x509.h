@@ -176,7 +176,6 @@ typedef struct x509_cert {
 	x509_alt_names_t subject_alt_names;
 	uint16_t key_usage;
 	uint8_t ext_key_usage;
-	bool deprecated;
 	bool is_ca;
 	int8_t path_len_constraint;
 } x509_cert_t;

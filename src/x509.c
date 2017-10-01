@@ -32,26 +32,28 @@
 #define OID_EXT_KEY_USAGE_TIME_STAMP ASN1_CONST_OID(_OID_KEY_USAGE, 8)
 #define OID_EXT_KEY_USAGE_OCSP_SIGN ASN1_CONST_OID(_OID_KEY_USAGE, 9)
 
-typedef asinine_err_t (*delegate_parser_t)(asn1_parser_t *, x509_cert_t *);
+typedef asinine_err_t (*signature_parser_t)(
+    asn1_parser_t *, x509_signature_t *);
 
 typedef struct {
 	asn1_oid_t oid;
 	x509_sig_algo_t algorithm;
-	delegate_parser_t parser;
-	bool deprecated;
+	signature_parser_t parser;
 } signature_lookup_t;
+
+typedef asinine_err_t (*extension_parser_t)(asn1_parser_t *, x509_cert_t *);
 
 typedef struct {
 	asn1_oid_t oid;
-	delegate_parser_t parser;
+	extension_parser_t parser;
 } extension_lookup_t;
 
 static asinine_err_t parse_optional(asn1_parser_t *, x509_cert_t *);
 static asinine_err_t parse_extensions(asn1_parser_t *, x509_cert_t *);
-static asinine_err_t parse_null_or_empty_args(asn1_parser_t *, x509_cert_t *);
-static asinine_err_t parse_empty_args(asn1_parser_t *, x509_cert_t *);
-static asinine_err_t parse_signature_info(
-    asn1_parser_t *, x509_cert_t *, asn1_token_t *sig);
+static asinine_err_t parse_null_or_empty_args(
+    asn1_parser_t *, x509_signature_t *);
+static asinine_err_t parse_empty_args(asn1_parser_t *, x509_signature_t *);
+static asinine_err_t parse_signature_algo(asn1_parser_t *, x509_signature_t *);
 static asinine_err_t parse_validity(asn1_parser_t *, x509_cert_t *);
 
 static asinine_err_t parse_extn_key_usage(asn1_parser_t *, x509_cert_t *);
@@ -64,43 +66,43 @@ static asinine_err_t parse_extn_subject_alt_name(
 static const signature_lookup_t signature_algorithms[] = {
     {
         ASN1_OID(1, 2, 840, 113549, 1, 1, 2), X509_SIGNATURE_MD2_RSA,
-        &parse_null_or_empty_args, true,
+        &parse_null_or_empty_args,
     },
     {
         ASN1_OID(1, 2, 840, 113549, 1, 1, 4), X509_SIGNATURE_MD5_RSA,
-        &parse_null_or_empty_args, true,
+        &parse_null_or_empty_args,
     },
     {
         ASN1_OID(1, 2, 840, 113549, 1, 1, 5), X509_SIGNATURE_SHA1_RSA,
-        &parse_null_or_empty_args, true,
+        &parse_null_or_empty_args,
     },
     {
         ASN1_OID(1, 2, 840, 113549, 1, 1, 11), X509_SIGNATURE_SHA256_RSA,
-        &parse_null_or_empty_args, false,
+        &parse_null_or_empty_args,
     },
     {
         ASN1_OID(1, 2, 840, 113549, 1, 1, 12), X509_SIGNATURE_SHA384_RSA,
-        &parse_null_or_empty_args, false,
+        &parse_null_or_empty_args,
     },
     {
         ASN1_OID(1, 2, 840, 113549, 1, 1, 13), X509_SIGNATURE_SHA512_RSA,
-        &parse_null_or_empty_args, false,
+        &parse_null_or_empty_args,
     },
     {
         ASN1_OID(1, 2, 840, 10045, 4, 3, 2), X509_SIGNATURE_SHA256_ECDSA,
-        &parse_empty_args, false,
+        &parse_empty_args,
     },
     {
         ASN1_OID(1, 2, 840, 10045, 4, 3, 3), X509_SIGNATURE_SHA384_ECDSA,
-        &parse_empty_args, false,
+        &parse_empty_args,
     },
     {
         ASN1_OID(1, 2, 840, 10045, 4, 3, 3), X509_SIGNATURE_SHA512_ECDSA,
-        &parse_empty_args, false,
+        &parse_empty_args,
     },
     {
         ASN1_OID(2, 16, 840, 1, 101, 3, 4, 3, 2), X509_SIGNATURE_SHA256_DSA,
-        &parse_empty_args, false,
+        &parse_empty_args,
     },
 };
 
@@ -159,8 +161,7 @@ x509_parse_cert(asn1_parser_t *parser, x509_cert_t *cert) {
 	}
 
 	// signature
-	asn1_token_t signature;
-	RETURN_ON_ERROR(parse_signature_info(parser, cert, &signature));
+	RETURN_ON_ERROR(parse_signature_algo(parser, &cert->signature));
 
 	// issuer
 	RETURN_ON_ERROR(x509_parse_name(parser, &cert->issuer));
@@ -181,9 +182,12 @@ x509_parse_cert(asn1_parser_t *parser, x509_cert_t *cert) {
 	RETURN_ON_ERROR(asn1_pop(parser));
 
 	// signatureAlgorithm
-	NEXT_TOKEN(parser);
+	x509_signature_t sig_check;
+	RETURN_ON_ERROR(parse_signature_algo(parser, &sig_check));
 
-	if (!asn1_eq(token, &signature)) {
+	if (cert->signature.algorithm != sig_check.algorithm) {
+		// This must compare all fields parsed from signatureAlgorithm,
+		// but currently we only support algorithms without parameters.
 		return ERROR(
 		    ASININE_ERR_INVALID, "cert: signature algorithm doesn't match");
 	}
@@ -256,7 +260,7 @@ parse_optional(asn1_parser_t *parser, x509_cert_t *cert) {
 	return ERROR(ASININE_OK, NULL);
 }
 
-static delegate_parser_t
+static extension_parser_t
 find_extension_parser(const asn1_oid_t *oid) {
 	size_t i;
 
@@ -302,7 +306,7 @@ parse_extensions(asn1_parser_t *parser, x509_cert_t *cert) {
 			return ERROR(ASININE_ERR_INVALID, NULL);
 		}
 
-		delegate_parser_t extn_parser = find_extension_parser(&id);
+		extension_parser_t extn_parser = find_extension_parser(&id);
 		if (extn_parser != NULL) {
 			RETURN_ON_ERROR(asn1_force_push(parser));
 			RETURN_ON_ERROR(extn_parser(parser, cert));
@@ -330,31 +334,27 @@ find_signature_algorithm(const asn1_oid_t *oid) {
 }
 
 static asinine_err_t
-parse_signature_info(
-    asn1_parser_t *parser, x509_cert_t *cert, asn1_token_t *sig) {
+parse_signature_algo(asn1_parser_t *parser, x509_signature_t *signature) {
 	const asn1_token_t *const token = &parser->token;
 
 	RETURN_ON_ERROR(asn1_push_seq(parser));
-	*sig = *token;
 
 	NEXT_TOKEN(parser);
-
 	if (!asn1_is_oid(token)) {
 		return ERROR(ASININE_ERR_INVALID, NULL);
 	}
 
 	asn1_oid_t oid;
-	asn1_oid(token, &oid);
+	RETURN_ON_ERROR(asn1_oid(token, &oid));
 
 	const signature_lookup_t *result = find_signature_algorithm(&oid);
 	if (result == NULL) {
 		return ERROR(ASININE_ERR_UNSUPPORTED, "signature: unknown algorithm");
 	}
 
-	cert->signature.algorithm = result->algorithm;
-	cert->deprecated          = cert->deprecated || result->deprecated;
+	signature->algorithm = result->algorithm;
 
-	RETURN_ON_ERROR(result->parser(parser, cert));
+	RETURN_ON_ERROR(result->parser(parser, signature));
 
 	return asn1_pop(parser);
 }
@@ -383,8 +383,8 @@ parse_validity(asn1_parser_t *parser, x509_cert_t *cert) {
 }
 
 static asinine_err_t
-parse_null_or_empty_args(asn1_parser_t *parser, x509_cert_t *cert) {
-	(void)cert;
+parse_null_or_empty_args(asn1_parser_t *parser, x509_signature_t *sig) {
+	(void)sig;
 	return _x509_parse_null_or_empty_args(parser);
 }
 
@@ -408,8 +408,8 @@ _x509_parse_null_or_empty_args(asn1_parser_t *parser) {
 }
 
 static asinine_err_t
-parse_empty_args(asn1_parser_t *parser, x509_cert_t *cert) {
-	(void)cert;
+parse_empty_args(asn1_parser_t *parser, x509_signature_t *sig) {
+	(void)sig;
 
 	if (!asn1_eof(parser)) {
 		return ERROR(ASININE_ERR_MALFORMED, "algorithm: non-empty args");
