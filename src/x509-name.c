@@ -83,7 +83,7 @@ x509_parse_optional_name(asn1_parser_t *parser, x509_name_t *name) {
 
 	*name = (x509_name_t){0};
 
-	RETURN_ON_ERROR(asn1_push_seq(parser));
+	RETURN_ON_ERROR(asn1_push_next_seq(parser));
 
 	// TODO: The sequence may be empty for V3 certificates, where the
 	// subjectAltName extension is enabled.
@@ -98,7 +98,7 @@ x509_parse_optional_name(asn1_parser_t *parser, x509_name_t *name) {
 		RETURN_ON_ERROR(asn1_push(parser));
 
 		// "AttributeValueAssertion"
-		RETURN_ON_ERROR(asn1_push_seq(parser));
+		RETURN_ON_ERROR(asn1_push_next_seq(parser));
 
 		// Get identifiying key (OID)
 		NEXT_TOKEN(parser);
@@ -208,7 +208,7 @@ x509_parse_alt_names(asn1_parser_t *parser, x509_alt_names_t *alt_names) {
 
 	*alt_names = (x509_alt_names_t){0};
 
-	RETURN_ON_ERROR(asn1_push_seq(parser));
+	RETURN_ON_ERROR(asn1_push_next_seq(parser));
 
 	// Alternative names must contain at least one name
 	size_t i = 0;

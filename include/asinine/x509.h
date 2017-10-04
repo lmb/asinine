@@ -12,6 +12,8 @@ extern "C" {
 
 #include "asinine/asn1.h"
 
+/* cldoc:begin-category(X.509) */
+
 #define X509_MAX_RDNS (13)
 #define X509_MAX_ALT_NAMES (128)
 #define X509_MAX_ALT_DIRECTORY_NAMES (1)
@@ -219,7 +221,9 @@ ASININE_API asinine_err_t x509_path_add(
     x509_path_t *path, const x509_cert_t *cert);
 
 ASININE_API asinine_err_t x509_path_end(
-    x509_path_t *path, const x509_cert_t *cert);
+	x509_path_t *path, const x509_cert_t *cert);
+	
+/* cldoc:end-category() */
 
 #ifdef __cplusplus
 }

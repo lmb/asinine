@@ -56,7 +56,7 @@ parse_asn1(const uint8_t *data, size_t length) {
 	}
 
 	// Iterate over unknown number of children
-	RETURN_ON_ERROR(asn1_push_seq(&parser));
+	RETURN_ON_ERROR(asn1_push_next_seq(&parser));
 
 	while (!asn1_eof(&parser)) {
 		// Call NEXT_TOKEN and process it

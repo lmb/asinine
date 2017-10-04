@@ -43,11 +43,6 @@ asn1_init(asn1_parser_t *parser, const uint8_t *data, size_t length) {
 	parser->end     = data + length;
 }
 
-void
-asn1_unsafe_skip(asn1_parser_t *parser) {
-	parser->current = parser->end;
-}
-
 bool
 asn1_eof(const asn1_parser_t *parser) {
 	return parser->current == parser->end;
@@ -265,7 +260,7 @@ asn1_tokens(asn1_parser_t *parser, void *ctx,
 }
 
 asinine_err_t
-asn1_push_seq(asn1_parser_t *parser) {
+asn1_push_next_seq(asn1_parser_t *parser) {
 	RETURN_ON_ERROR(asn1_next(parser));
 
 	if (!asn1_is_sequence(&parser->token)) {

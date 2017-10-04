@@ -1,3 +1,5 @@
+#<cldoc:ASN.1>
+
 This file is Copyright (c) 2003, 2006 Lev Walkin <vlm@lionet.info>. All rights
 reserved. Redistribution and modifications are permitted subject to BSD license.
 

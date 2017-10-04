@@ -15,15 +15,17 @@ ifeq ($(config),debug)
   asn1_config = debug
   x509_config = debug
   tests_config = debug
+  docs_config = debug
 endif
 ifeq ($(config),release)
   asinine_config = release
   asn1_config = release
   x509_config = release
   tests_config = release
+  docs_config = release
 endif
 
-PROJECTS := asinine asn1 x509 tests
+PROJECTS := asinine asn1 x509 tests docs
 
 .PHONY: all clean help $(PROJECTS) 
 
@@ -53,11 +55,18 @@ ifneq (,$(tests_config))
 	@${MAKE} --no-print-directory -C . -f tests.make config=$(tests_config)
 endif
 
+docs:
+ifneq (,$(docs_config))
+	@echo "==== Building docs ($(docs_config)) ===="
+	@${MAKE} --no-print-directory -C . -f docs.make config=$(docs_config)
+endif
+
 clean:
 	@${MAKE} --no-print-directory -C . -f asinine.make clean
 	@${MAKE} --no-print-directory -C . -f asn1.make clean
 	@${MAKE} --no-print-directory -C . -f x509.make clean
 	@${MAKE} --no-print-directory -C . -f tests.make clean
+	@${MAKE} --no-print-directory -C . -f docs.make clean
 
 help:
 	@echo "Usage: make [config=name] [target]"
@@ -73,5 +82,6 @@ help:
 	@echo "   asn1"
 	@echo "   x509"
 	@echo "   tests"
+	@echo "   docs"
 	@echo ""
 	@echo "For more information, see http://industriousone.com/premake/quick-start"

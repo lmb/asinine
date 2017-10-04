@@ -119,10 +119,10 @@ x509_parse_cert(asn1_parser_t *parser, x509_cert_t *cert) {
 	const asn1_token_t *token = &parser->token;
 
 	// Certificate
-	RETURN_ON_ERROR(asn1_push_seq(parser));
+	RETURN_ON_ERROR(asn1_push_next_seq(parser));
 
 	// tbsCertificate
-	RETURN_ON_ERROR(asn1_push_seq(parser));
+	RETURN_ON_ERROR(asn1_push_next_seq(parser));
 
 	cert->raw     = token->start;
 	cert->raw_num = token->length + (size_t)(token->data - token->start);
@@ -277,10 +277,10 @@ static asinine_err_t
 parse_extensions(asn1_parser_t *parser, x509_cert_t *cert) {
 	const asn1_token_t *const token = &parser->token;
 
-	RETURN_ON_ERROR(asn1_push_seq(parser));
+	RETURN_ON_ERROR(asn1_push_next_seq(parser));
 
 	while (!asn1_eof(parser)) {
-		RETURN_ON_ERROR(asn1_push_seq(parser));
+		RETURN_ON_ERROR(asn1_push_next_seq(parser));
 
 		// extnid
 		NEXT_TOKEN(parser);
@@ -337,7 +337,7 @@ static asinine_err_t
 parse_signature_algo(asn1_parser_t *parser, x509_signature_t *signature) {
 	const asn1_token_t *const token = &parser->token;
 
-	RETURN_ON_ERROR(asn1_push_seq(parser));
+	RETURN_ON_ERROR(asn1_push_next_seq(parser));
 
 	NEXT_TOKEN(parser);
 	if (!asn1_is_oid(token)) {
@@ -363,7 +363,7 @@ asinine_err_t
 parse_validity(asn1_parser_t *parser, x509_cert_t *cert) {
 	const asn1_token_t *const token = &parser->token;
 
-	RETURN_ON_ERROR(asn1_push_seq(parser));
+	RETURN_ON_ERROR(asn1_push_next_seq(parser));
 
 	// Valid from
 	NEXT_TOKEN(parser);
@@ -450,7 +450,7 @@ parse_extn_key_usage(asn1_parser_t *parser, x509_cert_t *cert) {
 
 static asinine_err_t
 parse_extn_ext_key_usage(asn1_parser_t *parser, x509_cert_t *cert) {
-	RETURN_ON_ERROR(asn1_push_seq(parser));
+	RETURN_ON_ERROR(asn1_push_next_seq(parser));
 
 	cert->ext_key_usage = 0;
 
@@ -491,7 +491,7 @@ parse_extn_ext_key_usage(asn1_parser_t *parser, x509_cert_t *cert) {
 
 static asinine_err_t
 parse_extn_basic_constraints(asn1_parser_t *parser, x509_cert_t *cert) {
-	RETURN_ON_ERROR(asn1_push_seq(parser));
+	RETURN_ON_ERROR(asn1_push_next_seq(parser));
 
 	cert->is_ca               = false;
 	cert->path_len_constraint = -1;

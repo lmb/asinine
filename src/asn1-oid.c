@@ -19,7 +19,7 @@
 
 static bool
 append_arc(asn1_oid_t *oid, asn1_oid_arc_t arc) {
-	if (oid->num >= ASN1_OID_MAXIMUM_DEPTH) {
+	if (oid->num >= NUM(oid->arcs)) {
 		return false;
 	}
 

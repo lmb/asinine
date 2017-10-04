@@ -74,10 +74,10 @@ x509_parse_pubkey(asn1_parser_t *parser, x509_pubkey_t *pubkey,
 	*has_params = false;
 
 	// SubjectPublicKeyInfo
-	RETURN_ON_ERROR(asn1_push_seq(parser));
+	RETURN_ON_ERROR(asn1_push_next_seq(parser));
 
 	// AlgorithmIdentifier
-	RETURN_ON_ERROR(asn1_push_seq(parser));
+	RETURN_ON_ERROR(asn1_push_next_seq(parser));
 
 	NEXT_TOKEN(parser);
 	if (!asn1_is_oid(&parser->token)) {
@@ -130,7 +130,7 @@ static asinine_err_t
 parse_rsa_pubkey(asn1_parser_t *parser, x509_pubkey_t *pubkey) {
 	const asn1_token_t *token = &parser->token;
 
-	RETURN_ON_ERROR(asn1_push_seq(parser));
+	RETURN_ON_ERROR(asn1_push_next_seq(parser));
 
 	// modulus (n)
 	NEXT_TOKEN(parser);

@@ -52,3 +52,9 @@ workspace "Asinine"
 		links { "asinine" }
 
 		files { "include/tests/*.h", "src/tests/*.c", "src/utils/load.c" }
+
+	project "docs"
+		kind "Makefile"
+		buildcommands {
+			"cldoc generate -I include -- --language c --merge docs --output dochtml --static include/asinine/*"
+		}
