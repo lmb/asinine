@@ -15,10 +15,34 @@ certificates used by the Alexa Top 10k sites.
 Be warned: `libasinine` will shoot you in the foot and then run away with the
 savings you hid under your mattress.
 
+### ASN.1
+
+The implementation follows ITU-T X.680 (11/2008) and ITU-T X.690 (11/2008), and has the functionality required to parse X.509 certificates. The only supported character set is UTF-8 (and by extension ASCII).
+
+### X.509
+
+The implementation largely follows [RFC 5280](https://tools.ietf.org/html/rfc5280). Only a limited set of extensions is supported:
+
+* Basic Constraints
+* Key Usage
+* Extended Key Usage
+* Subject Alternative Name (only common ones)
+
+This is enough to parse most certificates used for HTTP traffic. There is a small utility which excercises this part of the library.
+
+```
+> brew install mbedtls # on macOS
+> make x509
+> ./bin/Debug/x509 -h
+x509 <options> (<certs file>|-)
+  --check[=trust store|-]    Validate certificates against trust store
+
+  Use '-' to read from stdin. Only a single argument can be read from stdin.
+```
+
 Requirements
 ============
 
-* 64bit integers (emulation is fine)
 * GCC / Clang (C99)
 * libc
 * Optional: mbedtls (for utilities)
@@ -27,7 +51,7 @@ Compiling
 =========
 
 ```bash
-> make config=debug tests
+> make tests
 > ./bin/Debug/tests
 ```
 
