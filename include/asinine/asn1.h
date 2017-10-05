@@ -106,7 +106,7 @@ typedef struct asn1_type {
 } asn1_type_t;
 
 typedef struct asn1_token {
-	const uint8_t *start;
+	const void *start;
 	const uint8_t *data;
 	size_t length;
 	asn1_type_t type;

@@ -22,6 +22,7 @@
 #include "internal/utils.h"
 
 #define OPTPARSE_IMPLEMENTATION
+#define OPTPARSE_API static
 #include "internal/optparse.h"
 
 static void
@@ -301,10 +302,16 @@ validate_path(const uint8_t *trust, size_t trust_length,
 
 	RETURN_ON_ERROR(x509_parse_cert(&parser, &cert));
 
-	asinine_err_t err = find_issuer(trust, trust_length, &cert, &issuer);
-	if (err.errno != ASININE_OK) {
-		dump_name(stderr, &cert.issuer);
-		return err;
+	asinine_err_t err;
+	if (trust != NULL) {
+		err = find_issuer(trust, trust_length, &cert, &issuer);
+		if (err.errno != ASININE_OK) {
+			dump_name(stderr, &cert.issuer);
+			return err;
+		}
+	} else {
+		issuer = cert;
+		RETURN_ON_ERROR(x509_parse_cert(&parser, &cert));
 	}
 
 	x509_path_init(&path, &issuer, &now, validate_signature, NULL);
@@ -330,7 +337,14 @@ validate_path(const uint8_t *trust, size_t trust_length,
 
 static void
 print_help() {
-	printf("x509 [--check (<trust file>|-)] (<certs file>|-)\n");
+	printf("x509 <options> (<certs file>|-)\n");
+	printf(
+	    "  --check[=trust store|-]    Validate certificates against trust "
+	    "store\n");
+	printf("\n");
+	printf(
+	    "  Use '-' to read from stdin. Only a single argument can be read from "
+	    "stdin.\n");
 	exit(0);
 }
 
@@ -340,7 +354,7 @@ main(int argc, char *argv[]) {
 
 	struct optparse_long longopts[] = {
 	    {
-	        "check", 'c', OPTPARSE_REQUIRED,
+	        "check", 'c', OPTPARSE_OPTIONAL,
 	    },
 	    {
 	        "help", 'h', OPTPARSE_NONE,
@@ -348,7 +362,8 @@ main(int argc, char *argv[]) {
 	    {0},
 	};
 
-	const char *trust_file;
+	const char *trust_file = NULL;
+	bool check             = false;
 
 	int option;
 	struct optparse options;
@@ -360,6 +375,7 @@ main(int argc, char *argv[]) {
 			print_help();
 			break;
 		case 'c':
+			check      = true;
 			trust_file = options.optarg;
 			break;
 		case '?':
@@ -385,13 +401,15 @@ main(int argc, char *argv[]) {
 		return 1;
 	}
 
-	if (trust_file != NULL) {
-		size_t trust_len;
-		uint8_t *trust;
+	if (check) {
+		size_t trust_len = 0;
+		uint8_t *trust   = NULL;
 
-		trust = load(trust_file, &trust_len);
-		if (trust == NULL) {
-			return 1;
+		if (trust_file != NULL) {
+			trust = load(trust_file, &trust_len);
+			if (trust == NULL) {
+				return 1;
+			}
 		}
 
 		asinine_err_t err = validate_path(trust, trust_len, certs, certs_len);

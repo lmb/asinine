@@ -124,8 +124,9 @@ x509_parse_cert(asn1_parser_t *parser, x509_cert_t *cert) {
 	// tbsCertificate
 	RETURN_ON_ERROR(asn1_push_seq(parser));
 
-	cert->raw     = token->start;
-	cert->raw_num = token->length + (size_t)(token->data - token->start);
+	cert->raw = token->start;
+	cert->raw_num =
+	    token->length + (size_t)(token->data - (const uint8_t *)token->start);
 
 	// version
 	NEXT_TOKEN(parser);

@@ -46,7 +46,7 @@ x509_path_init(x509_path_t *path, const x509_cert_t *anchor,
 	path->ctx                   = ctx;
 	path->public_key            = anchor->pubkey;
 	path->public_key_parameters = anchor->pubkey_params;
-	path->issuer_name           = anchor->issuer;
+	path->issuer_name           = anchor->subject;
 	path->max_length            = -1;
 	path->cb                    = cb;
 	path->now                   = *now;
